@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import type { DeckDO } from "./deck-do";
 
 export interface Env {
-  DECK: DurableObjectNamespace;
+  DECK: DurableObjectNamespace<DeckDO>;
   ASSETS: Fetcher;
 }
+
+export { DeckDO } from "./deck-do";
 
 const app = new Hono<{ Bindings: Env }>();
 
