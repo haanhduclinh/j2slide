@@ -84,6 +84,10 @@ describe("DeckDO storage", () => {
   it("evicts the oldest slide past the cap while seq keeps climbing", async () => {
     const stub = await newDeck();
     for (let i = 0; i < L.SLIDE_CAP + 3; i++) {
+      await runInDurableObject(stub, async (_x, state) => {
+        const meta = await state.storage.get<Record<string, unknown>>("meta");
+        await state.storage.put("meta", { ...meta, rateTokens: L.RATE_LIMIT_PER_MIN });
+      });
       const result = await stub.pushSlide(KEY, bar(`S${i}`));
       expect(result.ok).toBe(true);
     }

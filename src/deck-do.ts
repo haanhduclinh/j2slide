@@ -18,6 +18,9 @@ interface DeckMeta {
   /** Seq of the oldest slide still stored. */
   firstSeq: number;
   count: number;
+  /** Token bucket: whole tokens available, refilled continuously. */
+  rateTokens: number;
+  rateRefilledAt: number;
 }
 
 const META = "meta";
@@ -37,6 +40,8 @@ export class DeckDO extends DurableObject<unknown> {
       nextSeq: 1,
       firstSeq: 1,
       count: 0,
+      rateTokens: L.RATE_LIMIT_PER_MIN,
+      rateRefilledAt: now,
     };
     await this.ctx.storage.put(META, meta);
   }
@@ -54,8 +59,18 @@ export class DeckDO extends DurableObject<unknown> {
     if (!auth.ok) return auth;
     const meta = auth.value;
 
+    const now = Date.now();
+    this.refill(meta, now);
+    if (meta.rateTokens < 1) {
+      const retryAfter = this.retryAfter(meta);
+      // Persist the refill so the bucket does not reset on the next call.
+      await this.ctx.storage.put(META, meta);
+      return { ok: false, error: "rate_limited", retryAfter };
+    }
+    meta.rateTokens -= 1;
+
     const seq = meta.nextSeq;
-    const slide: Slide = { ...input, seq, createdAt: Date.now() };
+    const slide: Slide = { ...input, seq, createdAt: now };
 
     await this.ctx.storage.put(slideKey(seq), slide);
     meta.nextSeq = seq + 1;
@@ -67,8 +82,9 @@ export class DeckDO extends DurableObject<unknown> {
       meta.count -= 1;
     }
 
-    meta.lastActiveAt = Date.now();
+    meta.lastActiveAt = now;
     await this.ctx.storage.put(META, meta);
+    await this.ctx.storage.setAlarm(now + L.EXPIRY_MS);
 
     return { ok: true, value: { seq, index: meta.count - 1, total: meta.count } };
   }
@@ -91,6 +107,37 @@ export class DeckDO extends DurableObject<unknown> {
     await this.ctx.storage.put(META, meta);
 
     return { ok: true, value: { cleared } };
+  }
+
+  /** Continuous refill: a full window restores the full budget. */
+  private refill(meta: DeckMeta, now: number): void {
+    const elapsed = now - meta.rateRefilledAt;
+    if (elapsed <= 0) return;
+    const gained = (elapsed / L.RATE_WINDOW_MS) * L.RATE_LIMIT_PER_MIN;
+    meta.rateTokens = Math.min(L.RATE_LIMIT_PER_MIN, meta.rateTokens + gained);
+    meta.rateRefilledAt = now;
+  }
+
+  /** Seconds until one token is available again, at least 1. */
+  private retryAfter(meta: DeckMeta): number {
+    const missing = 1 - meta.rateTokens;
+    const ms = (missing / L.RATE_LIMIT_PER_MIN) * L.RATE_WINDOW_MS;
+    return Math.max(1, Math.ceil(ms / 1000));
+  }
+
+  async alarm(): Promise<void> {
+    const meta = await this.ctx.storage.get<DeckMeta>(META);
+    if (!meta) return;
+
+    const idleFor = Date.now() - meta.lastActiveAt;
+    if (idleFor < L.EXPIRY_MS) {
+      // Activity happened after this alarm was set; push it out again.
+      await this.ctx.storage.setAlarm(meta.lastActiveAt + L.EXPIRY_MS);
+      return;
+    }
+
+    await this.deleteAllSlides(meta);
+    await this.ctx.storage.put(META, meta);
   }
 
   protected async authorize(apiKey: string): Promise<DeckResult<DeckMeta>> {
