@@ -1,6 +1,26 @@
 {
   "name": "j2slide",
+  "version": "1.0.0",
   "private": true,
+  "description": "Live presentation slides for AI agents — push chart JSON over HTTP or MCP, viewers update in real time.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haanhduclinh/j2slide.git"
+  },
+  "bugs": {
+    "url": "https://github.com/haanhduclinh/j2slide/issues"
+  },
+  "homepage": "https://github.com/haanhduclinh/j2slide#readme",
+  "keywords": [
+    "cloudflare-workers",
+    "durable-objects",
+    "mcp",
+    "presentation",
+    "ai-agents",
+    "hono",
+    "slides"
+  ],
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

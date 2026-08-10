@@ -1,104 +1,321 @@
 # j2slide
 
-Push chart JSON over HTTP; the slide appears immediately on every open viewer.
+**Live presentation slides for AI agents.**
 
-Built for AI agents: while the agent talks, it calls a presentation tool and the
-audience sees the supporting chart on a shared screen.
+Push chart JSON over HTTP or MCP — the slide appears immediately on every open
+viewer. Built for demos where an agent talks while the audience watches charts
+on a shared screen.
+
+| | |
+|---|---|
+| **Live demo** | [https://j2slide.haanhduclinh.workers.dev](https://j2slide.haanhduclinh.workers.dev) |
+| **API docs** | [Swagger UI](https://j2slide.haanhduclinh.workers.dev/docs) · [OpenAPI](https://j2slide.haanhduclinh.workers.dev/openapi.json) |
+| **License** | [MIT](./LICENSE) |
+| **Stack** | Cloudflare Workers · Durable Objects · Hono · pure SVG (no chart library) |
+
+```bash
+# Create a deck on the public demo
+curl -s -X POST https://j2slide.haanhduclinh.workers.dev/decks
+```
+
+Save the `api_key` (shown once). Open `view_url` in a browser, then push slides
+with the key — the viewer updates in real time.
+
+---
+
+## Why j2slide?
+
+Most agent UIs dump text or static images. j2slide is a **shared live deck**:
+
+1. Create a deck → get a **write key** (agent) and a **public view link** (audience).
+2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`) over REST or MCP.
+3. Every open viewer receives the slide over a hibernatable WebSocket.
+
+No accounts, no client-side chart libraries, no CDN. The viewer is vanilla JS
+and pure SVG so it works on locked-down networks.
+
+---
 
 ## How it works
 
-1. `POST /decks` returns an `api_key` (secret, for the agent) and a `deck_id`
-   (public, for the audience).
-2. Share `https://<host>/d/<deck_id>`. Anyone with the link can watch; nobody
-   with the link can write.
-3. The agent pushes slides with the `api_key`. Every open viewer updates at once.
+```
+  Agent (REST / MCP)                    Audience browser
+        │                                      │
+        │  Authorization: Bearer sk_…          │  GET /d/<deck_id>
+        ▼                                      ▼
+   ┌─────────────────────────────────────────────────┐
+   │              Cloudflare Worker (Hono)           │
+   │  /decks  /mcp/:id  /openapi.json  /d/:id        │
+   └──────────────────────┬──────────────────────────┘
+                          │ one Durable Object per deck
+                          ▼
+                   ┌─────────────┐
+                   │   DeckDO    │  SQLite storage
+                   │  slides +   │  rate limit · expiry
+                   │  key hash   │  WebSocket fan-out
+                   └─────────────┘
+```
 
-The `api_key` is shown exactly once. Only its SHA-256 digest is stored.
+- **`deck_id`** — public, 32 hex chars. Safe to share in a URL.
+- **`api_key`** — secret (`sk_` + 32 hex). Shown once at create time; only the
+  SHA-256 digest is stored. Required for every write.
+- **Viewers never hold the key.** The view URL is read-only.
+
+---
 
 ## Slide types
 
-`bar`, `line`, `pie`, `text`, `kpi`. Each has hard size limits so the fixed
-16:9 frame cannot be broken by input — see `/docs` for the exact bounds.
+| Type | Payload |
+|------|---------|
+| `bar` | Series of labeled values (optional unit) |
+| `line` | Same series shape as bar |
+| `pie` | Named slices (non-negative values) |
+| `text` | Title + bullet list |
+| `kpi` | Up to 4 KPI tiles (value, optional delta / trend) |
 
-## Quick start
+Hard limits keep every chart inside a fixed **16:9** frame. Exact bounds are in
+[`src/limits.ts`](./src/limits.ts) and published in `/openapi.json` so models see
+constraints before calling.
+
+---
+
+## Quick start (local)
+
+**Requirements:** Node.js 18+, npm. Deploy needs a [Cloudflare Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/)
+plan (Durable Objects).
 
 ```bash
+git clone https://github.com/haanhduclinh/j2slide.git
+cd j2slide
 npm install
 npm run dev
 ```
 
+Local default: `http://localhost:8787`
+
 ```bash
 # Create a deck
-curl -s -X POST http://localhost:8787/decks
+curl -s -X POST http://localhost:8787/decks | jq
 
-# Push a slide
+# Push a slide (replace <deck_id> and <api_key>)
 curl -s -X POST http://localhost:8787/decks/<deck_id>/slides \
   -H "Authorization: Bearer <api_key>" \
   -H "Content-Type: application/json" \
-  -d '{"type":"bar","title":"Revenue by quarter","unit":"M USD",
-       "data":[{"label":"Q1","value":12.4},{"label":"Q2","value":15.1}]}'
+  -d '{
+    "type": "bar",
+    "title": "Revenue by quarter",
+    "unit": "M USD",
+    "data": [
+      {"label": "Q1", "value": 12.4},
+      {"label": "Q2", "value": 15.1}
+    ]
+  }' | jq
 
-# Start a new session
+# Clear slides for a new session
 curl -s -X DELETE http://localhost:8787/decks/<deck_id>/slides \
   -H "Authorization: Bearer <api_key>"
 ```
 
 Open `http://localhost:8787/d/<deck_id>` to watch.
 
+---
+
+## Live demo
+
+Hosted instance (same code as this repo):
+
+**https://j2slide.haanhduclinh.workers.dev**
+
+| Endpoint | Purpose |
+|----------|---------|
+| [`/docs`](https://j2slide.haanhduclinh.workers.dev/docs) | Swagger UI |
+| [`/openapi.json`](https://j2slide.haanhduclinh.workers.dev/openapi.json) | Machine-readable API |
+| [`/health`](https://j2slide.haanhduclinh.workers.dev/health) | Liveness |
+| `/d/<deck_id>` | Live viewer |
+| `/mcp/<deck_id>` | MCP Streamable HTTP |
+
+The public demo is a shared sandbox. Do not put sensitive data on it. Deck
+creation is open; treat it as best-effort and ephemeral.
+
+---
+
 ## Connecting an agent
 
-**OpenAPI** — point any agent framework at `/openapi.json`. Every limit is
-published in the schema, so the model sees the constraints before it calls.
+### OpenAPI
 
-**MCP** — add the server as Streamable HTTP:
+Point any tool-using agent framework at:
+
+```text
+https://j2slide.haanhduclinh.workers.dev/openapi.json
+```
+
+(or your own host). Limits are in the schema.
+
+### MCP (Streamable HTTP)
+
+1. Create a deck and keep `api_key` + `deck_id`.
+2. Register the server:
 
 ```json
 {
   "mcpServers": {
     "j2slide": {
-      "url": "https://<host>/mcp/<deck_id>",
-      "headers": { "Authorization": "Bearer <api_key>" }
+      "url": "https://j2slide.haanhduclinh.workers.dev/mcp/<deck_id>",
+      "headers": {
+        "Authorization": "Bearer <api_key>"
+      }
     }
   }
 }
 ```
 
-Tools: `present_bar`, `present_line`, `present_pie`, `present_text`,
+**Tools:** `present_bar`, `present_line`, `present_pie`, `present_text`,
 `present_kpi`, `clear_deck`.
+
+---
 
 ## Viewer controls
 
 | Key | Action |
-|---|---|
-| `←` `→` `Space` | previous / next slide |
-| `End` | jump to the live slide |
-| `F` | fullscreen |
-| `T` | toggle dark/light |
+|-----|--------|
+| `←` `→` / `Space` | Previous / next slide |
+| `End` | Jump to the live (newest) slide |
+| `F` | Toggle fullscreen |
+| `T` | Toggle dark / light theme |
 
-A new slide auto-advances the viewer only if they are already on the last
-slide. If they have navigated back, a `▼ n new slides` badge appears instead.
+A new slide auto-advances only if the viewer is already on the latest slide.
+If they navigated back, a `▼ n new slides` badge appears instead.
+
+---
 
 ## Limits
 
-- 60 slides per minute per deck
-- 200 slides per deck; the oldest is evicted beyond that
-- 32 KB per request
-- Slides are deleted after 7 days of inactivity; the deck and its key survive
+| Limit | Value |
+|-------|------:|
+| Push rate | 60 slides / minute / deck |
+| Deck size | 200 slides (oldest evicted) |
+| Request body | 32 KB |
+| Idle expiry | Slides deleted after 7 days; deck + key hash kept |
 
-## Deploying
+---
 
-Requires the **Cloudflare Workers Paid plan** — Durable Objects are not
-available on the free plan.
+## Project layout
+
+```text
+src/
+  index.ts           App entry, health, 404
+  limits.ts          Single source of truth for all caps
+  schemas.ts         Zod slide schemas (+ OpenAPI metadata)
+  mcp-schemas.ts     Hand-built MCP JSON Schema from limits
+  auth.ts            Key gen, SHA-256, constant-time compare
+  deck-do.ts         Durable Object: storage, rate limit, WS, alarm
+  deck-stub.ts       Resolve deck_id → DO stub
+  errors.ts          Error code → HTTP response
+  routes/
+    decks.ts         REST create / push / list / clear
+    mcp.ts           MCP Streamable HTTP
+    openapi.ts       OpenAPI document + Swagger UI
+    viewer.ts        HTML shell + WebSocket upgrade
+public/
+  render.js          Pure SVG renderers (no DOM)
+  theme.js           Dark / light tokens
+  viewer.js          WebSocket client, navigation
+  viewer.css         Letterboxed 16:9 chrome
+test/                Vitest + @cloudflare/vitest-pool-workers
+```
+
+Design notes: [`docs/superpowers/specs/2026-08-02-j2slide-design.md`](./docs/superpowers/specs/2026-08-02-j2slide-design.md).
+
+---
+
+## Deploy your own
+
+Requires the **Cloudflare Workers Paid** plan (Durable Objects).
 
 ```bash
-npx wrangler login
+npx wrangler login    # once
+npm test
 npm run deploy
 ```
+
+Config lives in [`wrangler.jsonc`](./wrangler.jsonc): Worker name `j2slide`,
+SQLite Durable Object class `DeckDO`, static assets from `public/`.
+
+Optional custom domain: Cloudflare Dashboard → Workers → **j2slide** →
+**Domains & Routes**, or add `routes` / domains in Wrangler.
+
+Redeploy after changes:
+
+```bash
+npm test && npm run deploy
+```
+
+---
 
 ## Development
 
 ```bash
-npm test          # full suite
+npm test          # full suite (workers pool)
 npm run test:watch
 npm run typecheck
+npm run cf-typegen   # regenerate worker-configuration.d.ts
 ```
+
+Conventions:
+
+- English for code, comments, commits, and docs.
+- Import Zod only from `@hono/zod-openapi` (not bare `zod`).
+- `public/render.js` must stay pure: data in → SVG string out, no DOM.
+- Conventional Commits (`feat:`, `fix:`, `docs:`, …).
+
+---
+
+## Security model
+
+| Concern | Behavior |
+|---------|----------|
+| Write auth | Bearer `api_key`; only SHA-256 stored server-side |
+| Read access | Anyone with `/d/<deck_id>` can watch (by design) |
+| Viewer XSS | Slide strings XML-escaped in pure SVG renderers |
+| Payload size | 32 KB cap on REST and MCP |
+| Abuse | Per-deck push rate limit (60/min); **no** IP rate limit on `POST /decks` yet |
+
+**Known limitation for public internet:** deck creation is unauthenticated.
+Self-hosters should add an IP (or similar) rate limit before heavy public use.
+The hosted demo is a sandbox — do not store secrets or PII there.
+
+---
+
+## Code review notes (current tree)
+
+Strengths:
+
+- Clear split: REST / MCP / OpenAPI / viewer over one `DeckDO`.
+- Limits centralized; OpenAPI + MCP tests assert published bounds.
+- Auth uses CSPRNG ids, SHA-256 digests, timing-safe compare.
+- Hibernatable WebSockets + pure SVG keep cost and dependencies low.
+- 114 automated tests across storage, rate limit, WS, routes, MCP, render.
+
+Follow-ups worth knowing:
+
+- IP rate limit on `POST /decks` before large-scale public exposure.
+- Optional: re-arm expiry alarm on `clearSlides` (idle policy already self-heals).
+- Dual `Env` typings (`src/index.ts` + `worker-configuration.d.ts`) could be unified.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+1. Fork and branch from `master`.
+2. Keep changes focused; match existing style and file layout.
+3. Add or update tests for behavior changes.
+4. Run `npm test` and `npm run typecheck` before opening a PR.
+5. Use Conventional Commit messages.
+
+---
+
+## License
+
+[MIT](./LICENSE) © 2026 haanhduclinh
