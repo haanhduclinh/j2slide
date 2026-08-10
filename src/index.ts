@@ -20,4 +20,8 @@ app.route("/", mcpRoutes);
 app.route("/", openapiRoutes);
 app.route("/", viewerRoutes);
 
+app.get("/", (c) => c.redirect("/docs", 302));
+
+app.notFound((c) => c.json({ error: "not_found" }, 404));
+
 export default app;
