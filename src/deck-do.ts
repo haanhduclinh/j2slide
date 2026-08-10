@@ -9,6 +9,11 @@ export type DeckResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: DeckErrorCode; retryAfter?: number };
 
+export type ServerMessage =
+  | { type: "init"; slides: Slide[]; liveIndex: number }
+  | { type: "slide"; slide: Slide; index: number }
+  | { type: "clear" };
+
 interface DeckMeta {
   apiKeyHash: string;
   createdAt: number;
@@ -27,6 +32,53 @@ const META = "meta";
 const slideKey = (seq: number) => `slide:${String(seq).padStart(6, "0")}`;
 
 export class DeckDO extends DurableObject<unknown> {
+  constructor(ctx: DurableObjectState, env: unknown) {
+    super(ctx, env);
+    // Keepalive handled by the runtime, so an idle deck stays hibernated.
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("expected websocket upgrade", { status: 426 });
+    }
+    const meta = await this.ctx.storage.get<DeckMeta>(META);
+    if (!meta) return new Response("deck_not_found", { status: 404 });
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+
+    // acceptWebSocket (not server.accept) is what makes the deck hibernatable.
+    this.ctx.acceptWebSocket(server);
+
+    const slides = await this.readSlides();
+    server.send(JSON.stringify({
+      type: "init",
+      slides,
+      liveIndex: slides.length - 1,
+    } satisfies ServerMessage));
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** Viewers never send application messages; ignore anything that arrives. */
+  async webSocketMessage(): Promise<void> {}
+
+  async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    ws.close(code, reason);
+  }
+
+  private broadcast(message: ServerMessage): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.ctx.getWebSockets()) {
+      try {
+        socket.send(payload);
+      } catch {
+        // A socket that cannot receive is already gone; the runtime cleans it up.
+      }
+    }
+  }
+
   /** Creates the deck. Idempotent: re-initialising an existing deck is a no-op. */
   async init(apiKeyHash: string): Promise<void> {
     const existing = await this.ctx.storage.get<DeckMeta>(META);
@@ -86,6 +138,8 @@ export class DeckDO extends DurableObject<unknown> {
     await this.ctx.storage.put(META, meta);
     await this.ctx.storage.setAlarm(now + L.EXPIRY_MS);
 
+    this.broadcast({ type: "slide", slide, index: meta.count - 1 });
+
     return { ok: true, value: { seq, index: meta.count - 1, total: meta.count } };
   }
 
@@ -105,6 +159,8 @@ export class DeckDO extends DurableObject<unknown> {
     const cleared = await this.deleteAllSlides(meta);
     meta.lastActiveAt = Date.now();
     await this.ctx.storage.put(META, meta);
+
+    this.broadcast({ type: "clear" });
 
     return { ok: true, value: { cleared } };
   }
