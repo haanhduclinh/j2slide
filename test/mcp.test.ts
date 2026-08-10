@@ -122,4 +122,27 @@ describe("mcp endpoint", () => {
     const { body } = await rpc(deck, "resources/list");
     expect(body.error.code).toBe(-32601);
   });
+
+  it("rejects a body over the size cap before parsing it", async () => {
+    const deck = await createDeck();
+    const res = await call(`/mcp/${deck.deck_id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${deck.api_key}`,
+        "Content-Length": String(L.BODY_BYTES_MAX + 1),
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "present_text",
+          arguments: { title: "big", bullets: ["x".repeat(L.BULLET_MAX)] },
+        },
+      }),
+    });
+    expect(res.status).toBe(413);
+    expect((await res.json() as any).error).toBe("payload_too_large");
+  });
 });

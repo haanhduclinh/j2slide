@@ -51,7 +51,14 @@ function connect(attempt = 0) {
   });
 
   socket.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
+    // DO auto-responds "ping"→"pong"; ignore non-JSON keepalive traffic.
+    if (event.data === "pong" || event.data === "ping") return;
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
 
     if (message.type === "init") {
       state.slides = message.slides;

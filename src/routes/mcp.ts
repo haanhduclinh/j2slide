@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { extractBearer } from "../auth";
 import { deckStub } from "../deck-stub";
 import { errorResponse } from "../errors";
+import { L } from "../limits";
 import { TOOL_DEFINITIONS } from "../mcp-schemas";
 import { SlideInput } from "../schemas";
 import type { Env } from "../index";
@@ -34,9 +35,18 @@ mcpRoutes.post("/mcp/:deckId", async (c) => {
   const apiKey = extractBearer(c.req.header("Authorization") ?? null);
   if (!apiKey) return errorResponse("unauthorized");
 
+  // Same body size guard as REST POST /decks/:id/slides — reject before parse.
+  const declared = Number(c.req.header("Content-Length") ?? 0);
+  if (declared > L.BODY_BYTES_MAX) return errorResponse("payload_too_large");
+
+  const raw = await c.req.text();
+  if (new TextEncoder().encode(raw).byteLength > L.BODY_BYTES_MAX) {
+    return errorResponse("payload_too_large");
+  }
+
   let request: JsonRpcRequest;
   try {
-    request = await c.req.json();
+    request = JSON.parse(raw);
   } catch {
     return rpcError(null, -32700, "Parse error");
   }
