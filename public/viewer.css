@@ -1,0 +1,56 @@
+:root {
+  --bg: #06070a;
+  --chrome: #f2f4f8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--chrome);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* Letterbox: the slide keeps 16:9 whatever the viewport does. */
+#stage {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+#stage .slide {
+  width: min(100vw, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  animation: enter 250ms ease-out;
+}
+
+#stage .slide svg { display: block; width: 100%; height: 100%; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #stage .slide { animation: none; }
+}
+
+#jump {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #5b8cff;
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#jump[hidden] { display: none; }
