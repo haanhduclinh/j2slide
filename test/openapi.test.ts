@@ -53,6 +53,16 @@ describe("openapi document", () => {
     expect(parsed.components.schemas.KpiSlide.properties.items.maxItems).toBe(L.KPI_MAX);
   });
 
+  it("documents idle slide expiry on create deck", async () => {
+    const doc = await (await get("/openapi.json")).json() as any;
+    const create = doc.paths["/decks"].post;
+    expect(create.description).toMatch(/2 hours|two hours/i);
+    expect(create.description).toMatch(/idle|inactiv/i);
+    const schema = doc.components.schemas.DeckCreated;
+    expect(schema.properties).toHaveProperty("idle_expiry_ms");
+    expect(schema.required).toEqual(expect.arrayContaining(["idle_expiry_ms", "warning"]));
+  });
+
   it("declares bearer auth on the write routes", async () => {
     const doc = await (await get("/openapi.json")).json() as any;
     expect(doc.components.securitySchemes).toHaveProperty("bearerAuth");

@@ -195,7 +195,7 @@ If they navigated back, a `▼ n new slides` badge appears instead.
 | Push rate | 60 slides / minute / deck |
 | Deck size | 200 slides (oldest evicted) |
 | Request body | 32 KB |
-| Idle expiry | Slides deleted after 7 days; deck + key hash kept |
+| Idle expiry | Slides deleted after **2 hours** without a successful push; deck + key hash kept |
 
 ---
 

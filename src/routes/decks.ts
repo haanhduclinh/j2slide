@@ -20,7 +20,11 @@ deckRoutes.post("/decks", async (c) => {
     api_key: apiKey,
     view_url: `${origin}/d/${deckId}`,
     mcp_url: `${origin}/mcp/${deckId}`,
-    warning: "api_key is shown only once. Store it now.",
+    idle_expiry_ms: L.EXPIRY_MS,
+    warning:
+      "api_key is shown only once. Store it now. " +
+      "Slides are deleted after 2 hours of inactivity (no successful push); " +
+      "the deck and key survive.",
   }, 201);
 });
 

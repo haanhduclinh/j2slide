@@ -20,5 +20,6 @@ export const L = {
   SLIDE_CAP: 200,
   RATE_LIMIT_PER_MIN: 60,
   RATE_WINDOW_MS: 60_000,
-  EXPIRY_MS: 7 * 24 * 60 * 60 * 1000,
+  /** After this long without a successful push, all slides are deleted. */
+  EXPIRY_MS: 2 * 60 * 60 * 1000,
 } as const;

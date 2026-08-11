@@ -1,5 +1,6 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
+import { L } from "../limits";
 import { BarSlide, KpiSlide, LineSlide, PieSlide, SlideInput, TextSlide } from "../schemas";
 import type { Env } from "../index";
 
@@ -8,7 +9,13 @@ const DeckCreated = z.object({
   api_key: z.string(),
   view_url: z.string(),
   mcp_url: z.string(),
-  warning: z.string(),
+  idle_expiry_ms: z.number().int().openapi({
+    description: "Milliseconds of inactivity after which all slides are deleted",
+    example: L.EXPIRY_MS,
+  }),
+  warning: z.string().openapi({
+    description: "Client-facing notices (key secrecy + idle slide expiry)",
+  }),
 }).openapi("DeckCreated");
 
 const PushResult = z.object({
@@ -63,7 +70,11 @@ openapiRoutes.openAPIRegistry.registerPath({
   method: "post",
   path: "/decks",
   summary: "Create a deck and receive its key pair",
-  description: "The api_key is returned exactly once and is never retrievable again.",
+  description:
+    "The api_key is returned exactly once and is never retrievable again. " +
+    "Slides are deleted after 2 hours of inactivity (no successful push); " +
+    "the deck identity and key hash remain so the same key can push again. " +
+    `idle_expiry_ms is ${L.EXPIRY_MS} (2 hours).`,
   responses: { 201: json(DeckCreated, "Deck created") },
 });
 

@@ -16,7 +16,12 @@ async function createDeck() {
   const res = await call("/decks", { method: "POST" });
   expect(res.status).toBe(201);
   return (await res.json()) as {
-    deck_id: string; api_key: string; view_url: string; mcp_url: string;
+    deck_id: string;
+    api_key: string;
+    view_url: string;
+    mcp_url: string;
+    warning: string;
+    idle_expiry_ms: number;
   };
 }
 
@@ -36,6 +41,14 @@ describe("POST /decks", () => {
     expect(deck.api_key).toMatch(/^sk_[0-9a-f]{32}$/);
     expect(deck.view_url).toBe(`${BASE}/d/${deck.deck_id}`);
     expect(deck.mcp_url).toBe(`${BASE}/mcp/${deck.deck_id}`);
+  });
+
+  it("documents two-hour idle slide expiry for the client", async () => {
+    const deck = await createDeck();
+    expect(deck.idle_expiry_ms).toBe(L.EXPIRY_MS);
+    expect(deck.idle_expiry_ms).toBe(2 * 60 * 60 * 1000);
+    expect(deck.warning.toLowerCase()).toMatch(/2 hours|two hours/);
+    expect(deck.warning.toLowerCase()).toMatch(/idle|inactiv/);
   });
 
   it("issues a distinct deck each time", async () => {
