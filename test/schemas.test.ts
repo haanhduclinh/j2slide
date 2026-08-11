@@ -157,4 +157,84 @@ describe("slide schemas", () => {
       expect(result.error.issues.some((i) => i.path.join(".") === "title")).toBe(true);
     }
   });
+
+  it("accepts a composite with image + text + bar chart", () => {
+    expect(ok({
+      type: "composite",
+      title: "Q3 update",
+      layout: "split",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/a.png", alt: "Hero" },
+        { type: "text", bullets: ["Up 12%", "Churn flat"] },
+        { type: "chart", chart: "bar", unit: "M", data: [{ label: "Q1", value: 10 }, { label: "Q2", value: 12 }] },
+      ],
+    })).toBe(true);
+  });
+
+  it("accepts composite without layout (defaults at render)", () => {
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{ type: "text", bullets: ["only"] }],
+    })).toBe(true);
+  });
+
+  it("rejects composite with 0 or 5 blocks", () => {
+    expect(ok({ type: "composite", title: "T", blocks: [] })).toBe(false);
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: Array.from({ length: 5 }, () => ({ type: "text", bullets: ["x"] })),
+    })).toBe(false);
+  });
+
+  it("rejects two image or two chart blocks", () => {
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: [
+        { type: "image", url: "https://a.com/1.png" },
+        { type: "image", url: "https://a.com/2.png" },
+      ],
+    })).toBe(false);
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: [
+        { type: "chart", chart: "pie", data: [{ label: "a", value: 1 }] },
+        { type: "chart", chart: "bar", data: [{ label: "a", value: 1 }] },
+      ],
+    })).toBe(false);
+  });
+
+  it("rejects non-https image urls", () => {
+    for (const url of ["http://x.com/a.png", "data:image/png;base64,xx", "//cdn.x/a.png", "ftp://x/a"]) {
+      expect(ok({
+        type: "composite", title: "T",
+        blocks: [{ type: "image", url }],
+      })).toBe(false);
+    }
+  });
+
+  it("rejects nested chart past composite series cap and unknown chart kinds", () => {
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: [{
+        type: "chart", chart: "bar",
+        data: Array.from({ length: L.COMPOSITE_CHART_SERIES_MAX + 1 }, (_, i) => ({ label: `l${i}`, value: i })),
+      }],
+    })).toBe(false);
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: [{ type: "chart", chart: "scatter", data: [{ label: "a", value: 1 }] }],
+    })).toBe(false);
+  });
+
+  it("allows two text blocks under the total cap", () => {
+    expect(ok({
+      type: "composite", title: "T",
+      blocks: [
+        { type: "text", bullets: ["a"] },
+        { type: "text", bullets: ["b"] },
+        { type: "image", url: "https://cdn.example.com/x.png" },
+      ],
+    })).toBe(true);
+  });
 });

@@ -22,6 +22,7 @@ import { renderArea } from "./renderers/area.js";
 import { renderStackedBar } from "./renderers/stacked-bar.js";
 import { renderScatter } from "./renderers/scatter.js";
 import { renderDonut } from "./renderers/donut.js";
+import { renderComposite } from "./renderers/composite.js";
 
 export { CANVAS };
 
@@ -261,6 +262,7 @@ const RENDERERS = {
   stacked_bar: renderStackedBar,
   scatter: renderScatter,
   donut: renderDonut,
+  composite: renderComposite,
 };
 
 /**

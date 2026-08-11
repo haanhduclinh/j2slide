@@ -64,6 +64,7 @@ describe("mcp endpoint", () => {
       "clear_deck",
       "present_area",
       "present_bar",
+      "present_composite",
       "present_donut",
       "present_kpi",
       "present_line",
@@ -92,6 +93,7 @@ describe("mcp endpoint", () => {
     expect(byName.present_area.properties.series.maxItems).toBe(L.MULTI_SERIES_MAX);
     expect(byName.present_scatter.properties.points.maxItems).toBe(L.SCATTER_MAX);
     expect(byName.present_donut.properties.data.maxItems).toBe(L.PIE_MAX);
+    expect(byName.present_composite.properties.blocks.maxItems).toBe(L.COMPOSITE_BLOCKS_MAX);
   });
 
   it("presents a bar slide and reports its position", async () => {
@@ -146,6 +148,30 @@ describe("mcp endpoint", () => {
     const slides = ((await listed.json()) as any).slides;
     expect(slides[0].type).toBe("table");
     expect(slides[0].columns).toEqual(["Metric", "Value"]);
+  });
+
+  it("presents a composite slide through MCP", async () => {
+    const deck = await createDeck();
+    const { body } = await rpc(deck, "tools/call", {
+      name: "present_composite",
+      arguments: {
+        title: "Combo",
+        layout: "stack",
+        blocks: [
+          { type: "text", bullets: ["hello"] },
+          { type: "chart", chart: "bar", data: [{ label: "Q1", value: 2 }] },
+        ],
+      },
+    });
+    expect(body.result.isError).toBeFalsy();
+    expect(body.result.content[0].text).toContain("slide 1 of 1");
+
+    const listed = await call(`/decks/${deck.deck_id}/slides`, {
+      headers: { Authorization: `Bearer ${deck.api_key}` },
+    });
+    const slides = ((await listed.json()) as any).slides;
+    expect(slides[0].type).toBe("composite");
+    expect(slides[0].blocks).toHaveLength(2);
   });
 
   it("reports an unknown tool as a tool error", async () => {

@@ -27,6 +27,11 @@ describe("renderSlide", () => {
       },
       { type: "scatter", title: "T", points: [{ x: 1, y: 2 }] },
       { type: "donut", title: "T", data: [{ label: "a", value: 1 }] },
+      {
+        type: "composite",
+        title: "T",
+        blocks: [{ type: "text", bullets: ["b"] }],
+      },
     ];
     for (const slide of slides) {
       const svg = render(slide);
@@ -234,6 +239,46 @@ describe("renderSlide", () => {
     expect(svg.match(/class="slice"/g)?.length).toBeGreaterThanOrEqual(1);
     expect(svg).toContain('class="donut-center"');
     expect(svg).toContain("4");
+  });
+
+  it("renders composite with image href, bullets, and bar marks", () => {
+    const svg = render({
+      type: "composite",
+      title: "Combo",
+      layout: "stack",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/a.png" },
+        { type: "text", bullets: ["alpha", "beta"] },
+        { type: "chart", chart: "bar", data: [{ label: "Q1", value: 3 }] },
+      ],
+    });
+    expect(svg).toContain('class="block-image"');
+    expect(svg).toContain("https://cdn.example.com/a.png");
+    expect(svg).toContain("alpha");
+    expect(svg).toMatch(/class="bar"/);
+  });
+
+  it("renders composite split without throwing for two blocks", () => {
+    const svg = render({
+      type: "composite",
+      title: "Split",
+      layout: "split",
+      blocks: [
+        { type: "text", bullets: ["left"] },
+        { type: "chart", chart: "line", data: [{ label: "a", value: 1 }, { label: "b", value: 2 }] },
+      ],
+    });
+    expect(svg).toContain("left");
+    expect(svg).toContain("polyline");
+  });
+
+  it("escapes image url xml specials", () => {
+    const svg = render({
+      type: "composite",
+      title: "T",
+      blocks: [{ type: "image", url: "https://cdn.example.com/a&b.png?x=1&y=2" }],
+    });
+    expect(svg).toContain("a&amp;b.png");
   });
 
   it("renders in both themes", () => {

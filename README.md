@@ -28,7 +28,7 @@ with the key — the viewer updates in real time.
 Most agent UIs dump text or static images. j2slide is a **shared live deck**:
 
 1. Create a deck → get a **write key** (agent) and a **public view link** (audience).
-2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`, `table`, `area`, `stacked_bar`, `scatter`, `donut`) over REST or MCP.
+2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`, `table`, `area`, `stacked_bar`, `scatter`, `donut`, `composite`) over REST or MCP.
 3. Every open viewer receives the slide over a hibernatable WebSocket.
 
 No accounts, no client-side chart libraries, no CDN. The viewer is vanilla JS
@@ -77,6 +77,7 @@ and pure SVG so it works on locked-down networks.
 | `stacked_bar` | Same multi-series shape; values must be ≥ 0 |
 | `scatter` | `points[{ x, y, label?, series? }]` + optional axis labels |
 | `donut` | Same data shape as pie; ring with center total |
+| `composite` | Ordered `blocks[]` of `image` (https URL) + `text` + `chart` (bar/line/pie/donut); optional `layout`: `stack` \| `split` |
 
 Hard limits keep every chart inside a fixed **16:9** frame. Exact bounds are in
 [`src/limits.ts`](./src/limits.ts) and published in `/openapi.json` so models see
@@ -96,6 +97,31 @@ constraints before calling.
   ]
 }
 ```
+
+**Composite example** (image + bullets + nested bar; browser loads the image URL):
+
+```json
+{
+  "type": "composite",
+  "title": "Q3 product update",
+  "layout": "split",
+  "blocks": [
+    { "type": "image", "url": "https://cdn.example.com/hero.png", "alt": "Product" },
+    { "type": "text", "bullets": ["Revenue up 12%", "Churn flat"] },
+    {
+      "type": "chart",
+      "chart": "bar",
+      "unit": "M",
+      "data": [
+        { "label": "Q1", "value": 10 },
+        { "label": "Q2", "value": 12 }
+      ]
+    }
+  ]
+}
+```
+
+Caps: 1–4 blocks; at most one `image` and one `chart`; image URLs must be `https://`.
 
 ---
 
@@ -191,7 +217,7 @@ https://j2slide.haanhduclinh.workers.dev/openapi.json
 
 **Tools:** `present_bar`, `present_line`, `present_pie`, `present_text`,
 `present_kpi`, `present_table`, `present_area`, `present_stacked_bar`,
-`present_scatter`, `present_donut`, `clear_deck`.
+`present_scatter`, `present_donut`, `present_composite`, `clear_deck`.
 
 ---
 

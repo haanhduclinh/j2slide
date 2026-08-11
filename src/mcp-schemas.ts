@@ -171,6 +171,94 @@ const scatter = {
   additionalProperties: false,
 } as const;
 
+const compositePoint = {
+  type: "object",
+  properties: { label, value: { type: "number" } },
+  required: ["label", "value"],
+  additionalProperties: false,
+} as const;
+
+const compositePiePoint = {
+  type: "object",
+  properties: { label, value: { type: "number", minimum: 0 } },
+  required: ["label", "value"],
+  additionalProperties: false,
+} as const;
+
+const composite = {
+  type: "object",
+  properties: {
+    title,
+    layout: { type: "string", enum: ["stack", "split"] },
+    blocks: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.COMPOSITE_BLOCKS_MAX,
+      items: {
+        oneOf: [
+          {
+            type: "object",
+            properties: {
+              type: { type: "string", const: "image" },
+              url: { type: "string", minLength: 1, maxLength: L.IMAGE_URL_MAX },
+              alt: { type: "string", minLength: 1, maxLength: L.IMAGE_ALT_MAX },
+            },
+            required: ["type", "url"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: {
+              type: { type: "string", const: "text" },
+              bullets: {
+                type: "array",
+                minItems: 1,
+                maxItems: L.COMPOSITE_TEXT_BULLETS_MAX,
+                items: { type: "string", minLength: 1, maxLength: L.BULLET_MAX },
+              },
+            },
+            required: ["type", "bullets"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: {
+              type: { type: "string", const: "chart" },
+              chart: { type: "string", enum: ["bar", "line"] },
+              unit: { type: "string", maxLength: L.UNIT_MAX },
+              data: {
+                type: "array",
+                minItems: 1,
+                maxItems: L.COMPOSITE_CHART_SERIES_MAX,
+                items: compositePoint,
+              },
+            },
+            required: ["type", "chart", "data"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: {
+              type: { type: "string", const: "chart" },
+              chart: { type: "string", enum: ["pie", "donut"] },
+              data: {
+                type: "array",
+                minItems: 1,
+                maxItems: L.PIE_MAX,
+                items: compositePiePoint,
+              },
+            },
+            required: ["type", "chart", "data"],
+            additionalProperties: false,
+          },
+        ],
+      },
+    },
+  },
+  required: ["title", "blocks"],
+  additionalProperties: false,
+} as const;
+
 export type SlideType =
   | "bar"
   | "line"
@@ -181,7 +269,8 @@ export type SlideType =
   | "area"
   | "stacked_bar"
   | "scatter"
-  | "donut";
+  | "donut"
+  | "composite";
 
 export interface ToolDefinition {
   name: string;
@@ -251,6 +340,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: `Show a donut chart of parts of a whole (ring with center total). Max ${L.PIE_MAX} slices.`,
     slideType: "donut",
     inputSchema: pie,
+  },
+  {
+    name: "present_composite",
+    description:
+      `Show a composite slide with 1–${L.COMPOSITE_BLOCKS_MAX} blocks (image, text, chart). ` +
+      `At most one image and one chart. Image urls must be https://. ` +
+      `Nested charts: bar/line (≤${L.COMPOSITE_CHART_SERIES_MAX} points) or pie/donut (≤${L.PIE_MAX}). ` +
+      `Optional layout: stack (default) or split.`,
+    slideType: "composite",
+    inputSchema: composite,
   },
   {
     name: "clear_deck",

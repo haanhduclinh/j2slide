@@ -102,6 +102,68 @@ export const DonutSlide = z.object({
   data: z.array(PieSlice).min(1).max(L.PIE_MAX),
 }).openapi("DonutSlide");
 
+const httpsUrl = z.string().min(1).max(L.IMAGE_URL_MAX).refine(
+  (u) => u.startsWith("https://"),
+  { message: "image url must start with https://" },
+);
+
+export const ImageBlock = z.object({
+  type: z.literal("image"),
+  url: httpsUrl,
+  alt: z.string().min(1).max(L.IMAGE_ALT_MAX).optional(),
+}).openapi("ImageBlock");
+
+export const CompositeTextBlock = z.object({
+  type: z.literal("text"),
+  bullets: z.array(z.string().min(1).max(L.BULLET_MAX)).min(1).max(L.COMPOSITE_TEXT_BULLETS_MAX),
+}).openapi("CompositeTextBlock");
+
+const compositeSeriesData = z.array(Point).min(1).max(L.COMPOSITE_CHART_SERIES_MAX);
+const compositePieData = z.array(PieSlice).min(1).max(L.PIE_MAX);
+
+/** Flattened chart block variants so the parent blocks array can stay a simple union. */
+const ChartBlockBar = z.object({
+  type: z.literal("chart"),
+  chart: z.literal("bar"),
+  unit: z.string().max(L.UNIT_MAX).optional(),
+  data: compositeSeriesData,
+}).openapi("ChartBlockBar");
+
+const ChartBlockLine = z.object({
+  type: z.literal("chart"),
+  chart: z.literal("line"),
+  unit: z.string().max(L.UNIT_MAX).optional(),
+  data: compositeSeriesData,
+}).openapi("ChartBlockLine");
+
+const ChartBlockPie = z.object({
+  type: z.literal("chart"),
+  chart: z.literal("pie"),
+  data: compositePieData,
+}).openapi("ChartBlockPie");
+
+const ChartBlockDonut = z.object({
+  type: z.literal("chart"),
+  chart: z.literal("donut"),
+  data: compositePieData,
+}).openapi("ChartBlockDonut");
+
+export const CompositeBlock = z.union([
+  ImageBlock,
+  CompositeTextBlock,
+  ChartBlockBar,
+  ChartBlockLine,
+  ChartBlockPie,
+  ChartBlockDonut,
+]);
+
+export const CompositeSlide = z.object({
+  type: z.literal("composite"),
+  title,
+  layout: z.enum(["stack", "split"]).optional(),
+  blocks: z.array(CompositeBlock).min(1).max(L.COMPOSITE_BLOCKS_MAX),
+}).openapi("CompositeSlide");
+
 /**
  * Cross-field rules cannot live on discriminatedUnion members (ZodEffects is
  * rejected). Apply them on the union instead.
@@ -109,6 +171,7 @@ export const DonutSlide = z.object({
 export const SlideInput = z.discriminatedUnion("type", [
   BarSlide, LineSlide, PieSlide, TextSlide, KpiSlide,
   TableSlide, AreaSlide, StackedBarSlide, ScatterSlide, DonutSlide,
+  CompositeSlide,
 ]).superRefine((val, ctx) => {
   if (val.type === "table") {
     const cols = val.columns.length;
@@ -145,6 +208,29 @@ export const SlideInput = z.discriminatedUnion("type", [
         });
       }
     });
+  }
+
+  if (val.type === "composite") {
+    let images = 0;
+    let charts = 0;
+    for (const block of val.blocks) {
+      if (block.type === "image") images += 1;
+      if (block.type === "chart") charts += 1;
+    }
+    if (images > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "at most one image block",
+        path: ["blocks"],
+      });
+    }
+    if (charts > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "at most one chart block",
+        path: ["blocks"],
+      });
+    }
   }
 });
 

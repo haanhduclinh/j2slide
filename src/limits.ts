@@ -30,6 +30,14 @@ export const L = {
 
   SCATTER_MAX: 40,
 
+  /** Composite slides: ordered image / text / chart blocks. */
+  COMPOSITE_BLOCKS_MAX: 4,
+  COMPOSITE_TEXT_BULLETS_MAX: 6,
+  /** Nested bar/line density — smaller plot region than a full-slide chart. */
+  COMPOSITE_CHART_SERIES_MAX: 12,
+  IMAGE_URL_MAX: 2048,
+  IMAGE_ALT_MAX: 80,
+
   BODY_BYTES_MAX: 32 * 1024,
   SLIDE_CAP: 200,
   RATE_LIMIT_PER_MIN: 60,
