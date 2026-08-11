@@ -31,8 +31,10 @@ Most agent UIs dump text or static images. j2slide is a **shared live deck**:
 2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`, `table`, `area`, `stacked_bar`, `scatter`, `donut`, `composite`) over REST or MCP.
 3. Every open viewer receives the slide over a hibernatable WebSocket.
 
-No accounts, no client-side chart libraries, no CDN. The viewer is vanilla JS
-and pure SVG so it works on locked-down networks.
+No accounts, no client-side chart libraries, no CDN for the app itself. The
+viewer is vanilla JS and pure SVG. Chart slides render offline from JSON;
+`composite` **image** blocks load remote `https://` URLs in the browser (the
+server never fetches them), so those slides need network access to the image host.
 
 ---
 
@@ -264,14 +266,19 @@ src/
     openapi.ts       OpenAPI document + Swagger UI
     viewer.ts        HTML shell + WebSocket upgrade
 public/
-  render.js          Pure SVG renderers (no DOM)
+  render.js          Frame + dispatcher; legacy bar/line/pie/text/kpi bodies
+  renderers/         Modular pure SVG types (table, charts, composite, …)
   theme.js           Dark / light tokens
   viewer.js          WebSocket client, navigation
   viewer.css         Letterboxed 16:9 chrome
 test/                Vitest + @cloudflare/vitest-pool-workers
 ```
 
-Design notes: [`docs/superpowers/specs/2026-08-02-j2slide-design.md`](./docs/superpowers/specs/2026-08-02-j2slide-design.md).
+Design notes:
+
+- [`docs/superpowers/specs/2026-08-02-j2slide-design.md`](./docs/superpowers/specs/2026-08-02-j2slide-design.md) — core product
+- [`docs/superpowers/specs/2026-08-11-more-chart-types-design.md`](./docs/superpowers/specs/2026-08-11-more-chart-types-design.md) — table / area / stacked_bar / scatter / donut
+- [`docs/superpowers/specs/2026-08-11-composite-slide-design.md`](./docs/superpowers/specs/2026-08-11-composite-slide-design.md) — composite (image + text + chart)
 
 ---
 
@@ -323,7 +330,8 @@ Conventions:
 |---------|----------|
 | Write auth | Bearer `api_key`; only SHA-256 stored server-side |
 | Read access | Anyone with `/d/<deck_id>` can watch (by design) |
-| Viewer XSS | Slide strings XML-escaped in pure SVG renderers |
+| Viewer XSS | Slide strings (and image URLs) XML-escaped in pure SVG renderers |
+| Remote images | `composite` only accepts `https://` URLs; browser loads them directly — no server proxy; CORS/hotlink failures are empty regions |
 | Payload size | 32 KB cap on REST and MCP |
 | Abuse | Per-deck push rate limit (60/min); **no** IP rate limit on `POST /decks` yet |
 
@@ -341,7 +349,7 @@ Strengths:
 - Limits centralized; OpenAPI + MCP tests assert published bounds.
 - Auth uses CSPRNG ids, SHA-256 digests, timing-safe compare.
 - Hibernatable WebSockets + pure SVG keep cost and dependencies low.
-- 114 automated tests across storage, rate limit, WS, routes, MCP, render.
+- 150 automated tests across storage, rate limit, WS, routes, MCP, render, OpenAPI.
 
 Follow-ups worth knowing:
 
