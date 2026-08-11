@@ -1,5 +1,5 @@
 import {
-  CANVAS, CONTENT_TOP, CONTENT_BOTTOM, ROTATE_LABELS_ABOVE, n, text, formatValue,
+  CANVAS, CONTENT_TOP, CONTENT_BOTTOM, ROTATE_LABELS_ABOVE, labelIndices, n, text, formatValue,
 } from "../draw.js";
 
 /**
@@ -46,7 +46,9 @@ export function renderArea(slide, theme) {
   });
 
   const rotate = categories.length > ROTATE_LABELS_ABOVE;
+  const labeled = new Set(labelIndices(categories.length));
   categories.forEach((cat, i) => {
+    if (!labeled.has(i)) return;
     const x = xAt(i);
     if (rotate) {
       parts.push(text(cat, x, baseline + 28, {

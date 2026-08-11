@@ -29,6 +29,23 @@ describe("slide schemas", () => {
     })).toBe(false);
   });
 
+  it("accepts a 14-day line series (time-series decks)", () => {
+    expect(ok({
+      type: "line",
+      title: "Organic clicks 14d",
+      data: Array.from({ length: 14 }, (_, i) => ({ label: `D${i + 1}`, value: 100 + i })),
+    })).toBe(true);
+  });
+
+  it("accepts 30 categories on area charts", () => {
+    expect(ok({
+      type: "area",
+      title: "Traffic 30d",
+      categories: Array.from({ length: 30 }, (_, i) => `D${i + 1}`),
+      series: [{ name: "Organic", values: Array.from({ length: 30 }, (_, i) => i) }],
+    })).toBe(true);
+  });
+
   it("rejects a title one character too long", () => {
     expect(ok({ type: "bar", title: "t".repeat(L.TITLE_MAX + 1), data: [{ label: "a", value: 1 }] })).toBe(false);
   });

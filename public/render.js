@@ -11,6 +11,8 @@ import {
   CONTENT_BOTTOM,
   FOOTER_Y,
   ROTATE_LABELS_ABOVE,
+  HIDE_POINT_VALUES_ABOVE,
+  labelIndices,
   n,
   text,
   formatValue,
@@ -67,6 +69,8 @@ function renderBar(slide, theme) {
   const slot = width / data.length;
   const barWidth = Math.min(120, slot * 0.6);
   const rotate = data.length > ROTATE_LABELS_ABOVE;
+  const showValues = data.length <= HIDE_POINT_VALUES_ABOVE;
+  const labeled = new Set(labelIndices(data.length));
 
   const parts = [`<line x1="${left}" y1="${n(zeroY)}" x2="${right}" y2="${n(zeroY)}" stroke="${theme.grid}" stroke-width="2"/>`];
 
@@ -80,14 +84,18 @@ function renderBar(slide, theme) {
     parts.push(
       `<rect class="bar" x="${n(centre - barWidth / 2)}" y="${n(y)}" width="${n(barWidth)}" height="${n(height)}" rx="6" fill="${colour}"/>`,
     );
-    parts.push(text(formatValue(point.value, slide.unit), centre, y - 14, {
-      size: theme.valueSize, fill: theme.fg, family: theme.fontFamily, anchor: "middle", className: "bar-value",
-    }));
-    parts.push(text(point.label, centre, baseline + 40, {
-      size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
-      anchor: rotate ? "end" : "middle", className: "bar-label",
-      transform: rotate ? `rotate(-45 ${n(centre)} ${n(baseline + 40)})` : undefined,
-    }));
+    if (showValues) {
+      parts.push(text(formatValue(point.value, slide.unit), centre, y - 14, {
+        size: theme.valueSize, fill: theme.fg, family: theme.fontFamily, anchor: "middle", className: "bar-value",
+      }));
+    }
+    if (labeled.has(i)) {
+      parts.push(text(point.label, centre, baseline + 40, {
+        size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
+        anchor: rotate ? "end" : "middle", className: "bar-label",
+        transform: rotate ? `rotate(-45 ${n(centre)} ${n(baseline + 40)})` : undefined,
+      }));
+    }
   });
 
   return parts.join("\n");
@@ -124,13 +132,17 @@ function renderLine(slide, theme) {
     `<polyline fill="none" stroke="${theme.series[0]}" stroke-width="5" stroke-linejoin="round" points="${points.map((p) => `${n(p.x)},${n(p.y)}`).join(" ")}"/>`,
   );
 
+  const labeled = new Set(labelIndices(data.length));
+  const pointR = data.length > HIDE_POINT_VALUES_ABOVE ? 4 : 8;
   points.forEach((p, i) => {
-    parts.push(`<circle class="point" cx="${n(p.x)}" cy="${n(p.y)}" r="8" fill="${theme.series[0]}"/>`);
-    parts.push(text(data[i].label, p.x, baseline + 40, {
-      size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
-      anchor: data.length > ROTATE_LABELS_ABOVE ? "end" : "middle", className: "line-label",
-      transform: data.length > ROTATE_LABELS_ABOVE ? `rotate(-45 ${n(p.x)} ${n(baseline + 40)})` : undefined,
-    }));
+    parts.push(`<circle class="point" cx="${n(p.x)}" cy="${n(p.y)}" r="${pointR}" fill="${theme.series[0]}"/>`);
+    if (labeled.has(i)) {
+      parts.push(text(data[i].label, p.x, baseline + 40, {
+        size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
+        anchor: data.length > ROTATE_LABELS_ABOVE ? "end" : "middle", className: "line-label",
+        transform: data.length > ROTATE_LABELS_ABOVE ? `rotate(-45 ${n(p.x)} ${n(baseline + 40)})` : undefined,
+      }));
+    }
   });
 
   return parts.join("\n");

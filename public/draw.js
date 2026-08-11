@@ -9,6 +9,23 @@ export const CONTENT_BOTTOM = 800;
 export const FOOTER_Y = 852;
 export const ROTATE_LABELS_ABOVE = 8;
 
+/** Above this count, skip per-point value labels (too dense on 16:9). */
+export const HIDE_POINT_VALUES_ABOVE = 16;
+
+/**
+ * Pick which category indices keep a label when the axis is crowded.
+ * Always includes first and last; steps so roughly ≤12 labels show.
+ */
+export function labelIndices(count, maxLabels = 12) {
+  if (count <= maxLabels) return Array.from({ length: count }, (_, i) => i);
+  const indices = new Set([0, count - 1]);
+  const step = (count - 1) / (maxLabels - 1);
+  for (let k = 1; k < maxLabels - 1; k++) {
+    indices.add(Math.round(k * step));
+  }
+  return [...indices].sort((a, b) => a - b);
+}
+
 export function esc(value) {
   return String(value)
     .replace(/&/g, "&amp;")

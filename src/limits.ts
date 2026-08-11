@@ -8,7 +8,11 @@ export const L = {
   TITLE_MAX: 80,
   LABEL_MAX: 24,
   UNIT_MAX: 8,
-  SERIES_MAX: 12,
+  /**
+   * Max points on bar/line charts. Sized for common time series (≈3 months of
+   * daily points). Beyond this, agents should downsample or split slides.
+   */
+  SERIES_MAX: 90,
   PIE_MAX: 8,
   BULLET_MAX: 120,
   BULLETS_MAX: 8,
@@ -16,8 +20,8 @@ export const L = {
   KPI_VALUE_MAX: 12,
   KPI_DELTA_MAX: 10,
 
-  /** Multi-series charts (`area`, `stacked_bar`). */
-  CATEGORIES_MAX: 12,
+  /** Multi-series charts (`area`, `stacked_bar`) — same density as bar/line. */
+  CATEGORIES_MAX: 90,
   MULTI_SERIES_MAX: 6,
 
   TABLE_COLS_MAX: 6,

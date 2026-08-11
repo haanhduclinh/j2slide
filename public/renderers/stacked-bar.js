@@ -1,5 +1,5 @@
 import {
-  CANVAS, CONTENT_TOP, CONTENT_BOTTOM, ROTATE_LABELS_ABOVE, n, text,
+  CANVAS, CONTENT_TOP, CONTENT_BOTTOM, ROTATE_LABELS_ABOVE, labelIndices, n, text,
 } from "../draw.js";
 
 /**
@@ -23,6 +23,7 @@ export function renderStackedBar(slide, theme) {
   const slot = width / categories.length;
   const barWidth = Math.min(120, slot * 0.6);
   const rotate = categories.length > ROTATE_LABELS_ABOVE;
+  const labeled = new Set(labelIndices(categories.length));
 
   const parts = [
     `<line x1="${left}" y1="${n(baseline)}" x2="${right}" y2="${n(baseline)}" stroke="${theme.grid}" stroke-width="2"/>`,
@@ -41,6 +42,7 @@ export function renderStackedBar(slide, theme) {
       );
     });
 
+    if (!labeled.has(ci)) return;
     if (rotate) {
       parts.push(text(cat, centre, baseline + 28, {
         size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
