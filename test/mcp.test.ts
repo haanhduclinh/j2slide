@@ -174,6 +174,19 @@ describe("mcp endpoint", () => {
     expect(slides[0].blocks).toHaveLength(2);
   });
 
+  it("returns a tool error for composite with a non-https image url", async () => {
+    const deck = await createDeck();
+    const { body } = await rpc(deck, "tools/call", {
+      name: "present_composite",
+      arguments: {
+        title: "Bad image",
+        blocks: [{ type: "image", url: "http://cdn.example.com/a.png" }],
+      },
+    });
+    expect(body.result.isError).toBe(true);
+    expect(body.error).toBeUndefined();
+  });
+
   it("reports an unknown tool as a tool error", async () => {
     const deck = await createDeck();
     const { body } = await rpc(deck, "tools/call", { name: "present_heatmap", arguments: {} });

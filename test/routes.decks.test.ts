@@ -113,6 +113,47 @@ describe("POST /decks/{id}/slides", () => {
     expect(typeof body.details[0].message).toBe("string");
   });
 
+  it("accepts a composite slide over REST", async () => {
+    const deck = await createDeck();
+    const res = await push(deck, {
+      type: "composite",
+      title: "Q3 update",
+      layout: "split",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/hero.png", alt: "Hero" },
+        { type: "text", bullets: ["Up 12%"] },
+        { type: "chart", chart: "bar", data: [{ label: "Q1", value: 10 }] },
+      ],
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ seq: 1, index: 0, total: 1 });
+
+    const listed = await call(`/decks/${deck.deck_id}/slides`, {
+      headers: { Authorization: `Bearer ${deck.api_key}` },
+    });
+    const slides = ((await listed.json()) as any).slides;
+    expect(slides[0].type).toBe("composite");
+    expect(slides[0].blocks).toHaveLength(3);
+  });
+
+  it("rejects a composite with two image blocks over REST", async () => {
+    const deck = await createDeck();
+    const res = await push(deck, {
+      type: "composite",
+      title: "Bad",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/1.png" },
+        { type: "image", url: "https://cdn.example.com/2.png" },
+      ],
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as any;
+    expect(body.error).toBe("validation_failed");
+    expect(body.details.some((d: any) =>
+      String(d.message).toLowerCase().includes("image") || d.path === "blocks" || d.path?.startsWith("blocks"),
+    )).toBe(true);
+  });
+
   it("rejects a body over the size cap before parsing it", async () => {
     const deck = await createDeck();
     const res = await call(`/decks/${deck.deck_id}/slides`, {

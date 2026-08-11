@@ -237,4 +237,62 @@ describe("slide schemas", () => {
       ],
     })).toBe(true);
   });
+
+  it("rejects an unknown composite layout", () => {
+    expect(ok({
+      type: "composite",
+      title: "T",
+      layout: "grid",
+      blocks: [{ type: "text", bullets: ["a"] }],
+    })).toBe(false);
+  });
+
+  it("enforces composite text bullet count and pie non-negative values", () => {
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{
+        type: "text",
+        bullets: Array.from({ length: L.COMPOSITE_TEXT_BULLETS_MAX }, (_, i) => `b${i}`),
+      }],
+    })).toBe(true);
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{
+        type: "text",
+        bullets: Array.from({ length: L.COMPOSITE_TEXT_BULLETS_MAX + 1 }, (_, i) => `b${i}`),
+      }],
+    })).toBe(false);
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{ type: "chart", chart: "pie", data: [{ label: "a", value: -1 }] }],
+    })).toBe(false);
+  });
+
+  it("accepts nested bar at the composite series boundary and chart-only slides", () => {
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{
+        type: "chart",
+        chart: "bar",
+        data: Array.from({ length: L.COMPOSITE_CHART_SERIES_MAX }, (_, i) => ({
+          label: `l${i}`,
+          value: i,
+        })),
+      }],
+    })).toBe(true);
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{ type: "chart", chart: "donut", data: [{ label: "a", value: 1 }, { label: "b", value: 2 }] }],
+    })).toBe(true);
+    expect(ok({
+      type: "composite",
+      title: "T",
+      blocks: [{ type: "chart", chart: "line", data: [{ label: "a", value: 1 }] }],
+    })).toBe(true);
+  });
 });

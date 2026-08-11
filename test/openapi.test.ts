@@ -37,7 +37,11 @@ describe("openapi document", () => {
   it("exposes every slide type in the request schema", async () => {
     const doc = await (await get("/openapi.json")).json() as any;
     const names = Object.keys(doc.components.schemas);
-    for (const t of ["BarSlide", "LineSlide", "PieSlide", "TextSlide", "KpiSlide"]) {
+    for (const t of [
+      "BarSlide", "LineSlide", "PieSlide", "TextSlide", "KpiSlide",
+      "TableSlide", "AreaSlide", "StackedBarSlide", "ScatterSlide", "DonutSlide",
+      "CompositeSlide",
+    ]) {
       expect(names).toContain(t);
     }
   });

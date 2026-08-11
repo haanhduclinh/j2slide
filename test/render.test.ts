@@ -281,6 +281,68 @@ describe("renderSlide", () => {
     expect(svg).toContain("a&amp;b.png");
   });
 
+  it("renders nested pie and donut chart blocks", () => {
+    const pie = render({
+      type: "composite",
+      title: "Pie combo",
+      blocks: [
+        { type: "text", bullets: ["share"] },
+        { type: "chart", chart: "pie", data: [{ label: "a", value: 1 }, { label: "b", value: 2 }] },
+      ],
+    });
+    expect(pie).toContain("share");
+    expect(pie.match(/class="slice"/g)?.length).toBeGreaterThanOrEqual(1);
+
+    const donut = render({
+      type: "composite",
+      title: "Donut combo",
+      blocks: [
+        { type: "chart", chart: "donut", data: [{ label: "a", value: 1 }, { label: "b", value: 3 }] },
+      ],
+    });
+    expect(donut.match(/class="slice"/g)?.length).toBeGreaterThanOrEqual(1);
+    expect(donut).toContain('class="donut-total"');
+    expect(donut).toContain("4");
+  });
+
+  it("renders a three-block split without NaN", () => {
+    const svg = render({
+      type: "composite",
+      title: "Split3",
+      layout: "split",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/a.png" },
+        { type: "text", bullets: ["one", "two"] },
+        { type: "chart", chart: "bar", data: [{ label: "Q1", value: 2 }, { label: "Q2", value: 5 }] },
+      ],
+    });
+    expect(svg).toContain('class="block-image"');
+    expect(svg).toContain("one");
+    expect(svg).toMatch(/class="bar"/);
+    expect(svg).not.toContain("NaN");
+  });
+
+  it("renders composite in both themes without NaN", () => {
+    const slide = {
+      type: "composite",
+      title: "Themes",
+      layout: "stack",
+      blocks: [
+        { type: "image", url: "https://cdn.example.com/a.png" },
+        { type: "text", bullets: ["hello"] },
+        { type: "chart", chart: "line", data: [{ label: "a", value: 1 }, { label: "b", value: 3 }] },
+      ],
+    };
+    const dark = renderSlide(slide, THEMES.dark);
+    const light = renderSlide(slide, THEMES.light);
+    expect(dark).toContain(THEMES.dark.fg);
+    expect(light).toContain(THEMES.light.fg);
+    expect(dark).not.toContain("NaN");
+    expect(light).not.toContain("NaN");
+    expect(dark).toContain("hello");
+    expect(light).toContain("hello");
+  });
+
   it("renders in both themes", () => {
     const slide = { type: "bar", title: "T", data: [{ label: "a", value: 1 }] };
     expect(renderSlide(slide, THEMES.dark)).toContain(THEMES.dark.fg);
