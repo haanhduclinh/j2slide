@@ -87,11 +87,107 @@ const kpi = {
   additionalProperties: false,
 };
 
+const cell = { type: "string", minLength: 1, maxLength: L.TABLE_CELL_MAX } as const;
+
+const table = {
+  type: "object",
+  properties: {
+    title,
+    columns: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.TABLE_COLS_MAX,
+      items: cell,
+    },
+    rows: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.TABLE_ROWS_MAX,
+      items: {
+        type: "array",
+        minItems: 1,
+        items: cell,
+      },
+    },
+  },
+  required: ["title", "columns", "rows"],
+  additionalProperties: false,
+} as const;
+
+const multiSeries = {
+  type: "object",
+  properties: {
+    title,
+    unit: { type: "string", maxLength: L.UNIT_MAX },
+    categories: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.CATEGORIES_MAX,
+      items: label,
+    },
+    series: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.MULTI_SERIES_MAX,
+      items: {
+        type: "object",
+        properties: {
+          name: label,
+          values: { type: "array", minItems: 1, items: { type: "number" } },
+        },
+        required: ["name", "values"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["title", "categories", "series"],
+  additionalProperties: false,
+} as const;
+
+const scatter = {
+  type: "object",
+  properties: {
+    title,
+    x_label: label,
+    y_label: label,
+    points: {
+      type: "array",
+      minItems: 1,
+      maxItems: L.SCATTER_MAX,
+      items: {
+        type: "object",
+        properties: {
+          x: { type: "number" },
+          y: { type: "number" },
+          label,
+          series: label,
+        },
+        required: ["x", "y"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["title", "points"],
+  additionalProperties: false,
+} as const;
+
+export type SlideType =
+  | "bar"
+  | "line"
+  | "pie"
+  | "text"
+  | "kpi"
+  | "table"
+  | "area"
+  | "stacked_bar"
+  | "scatter"
+  | "donut";
+
 export interface ToolDefinition {
   name: string;
   description: string;
   /** The slide type this tool produces, or null for non-slide tools. */
-  slideType: "bar" | "line" | "pie" | "text" | "kpi" | null;
+  slideType: SlideType | null;
   inputSchema: Record<string, unknown>;
 }
 
@@ -110,7 +206,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "present_pie",
-    description: `Show a donut chart of parts of a whole. Aggregate anything beyond ${L.PIE_MAX} slices into an "Other" slice yourself.`,
+    description: `Show a pie/ring chart of parts of a whole. Aggregate anything beyond ${L.PIE_MAX} slices into an "Other" slice yourself.`,
     slideType: "pie",
     inputSchema: pie,
   },
@@ -125,6 +221,36 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: `Show up to ${L.KPI_MAX} headline numbers with optional change indicators.`,
     slideType: "kpi",
     inputSchema: kpi,
+  },
+  {
+    name: "present_table",
+    description: `Show a table with up to ${L.TABLE_COLS_MAX} columns and ${L.TABLE_ROWS_MAX} rows. Every row must match the column count.`,
+    slideType: "table",
+    inputSchema: table,
+  },
+  {
+    name: "present_area",
+    description: `Show an area chart with up to ${L.MULTI_SERIES_MAX} series and ${L.CATEGORIES_MAX} categories. Each series.values length must match categories.`,
+    slideType: "area",
+    inputSchema: multiSeries,
+  },
+  {
+    name: "present_stacked_bar",
+    description: `Show a stacked bar chart (non-negative values) with up to ${L.MULTI_SERIES_MAX} series and ${L.CATEGORIES_MAX} categories.`,
+    slideType: "stacked_bar",
+    inputSchema: multiSeries,
+  },
+  {
+    name: "present_scatter",
+    description: `Show a scatter plot with up to ${L.SCATTER_MAX} points. Optional per-point series groups colour.`,
+    slideType: "scatter",
+    inputSchema: scatter,
+  },
+  {
+    name: "present_donut",
+    description: `Show a donut chart of parts of a whole (ring with center total). Max ${L.PIE_MAX} slices.`,
+    slideType: "donut",
+    inputSchema: pie,
   },
   {
     name: "clear_deck",

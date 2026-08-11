@@ -28,7 +28,7 @@ with the key — the viewer updates in real time.
 Most agent UIs dump text or static images. j2slide is a **shared live deck**:
 
 1. Create a deck → get a **write key** (agent) and a **public view link** (audience).
-2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`) over REST or MCP.
+2. The agent posts slides (`bar`, `line`, `pie`, `text`, `kpi`, `table`, `area`, `stacked_bar`, `scatter`, `donut`) over REST or MCP.
 3. Every open viewer receives the slide over a hibernatable WebSocket.
 
 No accounts, no client-side chart libraries, no CDN. The viewer is vanilla JS
@@ -72,10 +72,30 @@ and pure SVG so it works on locked-down networks.
 | `pie` | Named slices (non-negative values) |
 | `text` | Title + bullet list |
 | `kpi` | Up to 4 KPI tiles (value, optional delta / trend) |
+| `table` | `columns[]` + `rows[][]` (string cells; each row matches column count) |
+| `area` | Multi-series: `categories[]` + `series[{ name, values[] }]` (overlaid fills) |
+| `stacked_bar` | Same multi-series shape; values must be ≥ 0 |
+| `scatter` | `points[{ x, y, label?, series? }]` + optional axis labels |
+| `donut` | Same data shape as pie; ring with center total |
 
 Hard limits keep every chart inside a fixed **16:9** frame. Exact bounds are in
 [`src/limits.ts`](./src/limits.ts) and published in `/openapi.json` so models see
 constraints before calling.
+
+**Multi-series example** (`stacked_bar` / `area`):
+
+```json
+{
+  "type": "stacked_bar",
+  "title": "Revenue mix",
+  "unit": "M",
+  "categories": ["Q1", "Q2", "Q3"],
+  "series": [
+    { "name": "Product", "values": [10, 12, 15] },
+    { "name": "Services", "values": [4, 5, 6] }
+  ]
+}
+```
 
 ---
 
@@ -170,7 +190,8 @@ https://j2slide.haanhduclinh.workers.dev/openapi.json
 ```
 
 **Tools:** `present_bar`, `present_line`, `present_pie`, `present_text`,
-`present_kpi`, `clear_deck`.
+`present_kpi`, `present_table`, `present_area`, `present_stacked_bar`,
+`present_scatter`, `present_donut`, `clear_deck`.
 
 ---
 

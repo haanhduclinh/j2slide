@@ -3,45 +3,25 @@
  * no DOM, no globals, no side effects. That is what makes them testable.
  */
 
-export const CANVAS = { w: 1600, h: 900, pad: 64 };
+import {
+  CANVAS,
+  TITLE_Y,
+  RULE_Y,
+  CONTENT_TOP,
+  CONTENT_BOTTOM,
+  FOOTER_Y,
+  ROTATE_LABELS_ABOVE,
+  n,
+  text,
+  formatValue,
+} from "./draw.js";
+import { renderTable } from "./renderers/table.js";
+import { renderArea } from "./renderers/area.js";
+import { renderStackedBar } from "./renderers/stacked-bar.js";
+import { renderScatter } from "./renderers/scatter.js";
+import { renderDonut } from "./renderers/donut.js";
 
-const TITLE_Y = 128;
-const RULE_Y = 152;
-const CONTENT_TOP = 210;
-const CONTENT_BOTTOM = 800;
-const FOOTER_Y = 852;
-const ROTATE_LABELS_ABOVE = 8;
-
-function esc(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** Rounds to 2dp and never emits NaN, which would silently break the SVG. */
-function n(value) {
-  return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
-}
-
-function text(content, x, y, opts = {}) {
-  // class before font-size so tests can match class="bullet"[^>]*font-size="..."
-  const attrs = [
-    `x="${n(x)}"`,
-    `y="${n(y)}"`,
-    opts.className ? `class="${opts.className}"` : "",
-    `font-size="${opts.size ?? 24}"`,
-    `fill="${opts.fill ?? "#000"}"`,
-    `font-family="${opts.family ?? ""}"`,
-    opts.weight ? `font-weight="${opts.weight}"` : "",
-    opts.anchor ? `text-anchor="${opts.anchor}"` : "",
-    opts.baseline ? `dominant-baseline="${opts.baseline}"` : "",
-    opts.transform ? `transform="${opts.transform}"` : "",
-  ].filter(Boolean).join(" ");
-  return `<text ${attrs}>${esc(content)}</text>`;
-}
+export { CANVAS };
 
 function frame(slide, theme, body, footer) {
   return [
@@ -68,11 +48,6 @@ function footerText(theme, left, right) {
       anchor: "end", className: "footer-right",
     }),
   ].join("\n");
-}
-
-function formatValue(value, unit) {
-  const rounded = Math.round(value * 100) / 100;
-  return unit ? `${rounded} ${unit}` : String(rounded);
 }
 
 function renderBar(slide, theme) {
@@ -269,6 +244,11 @@ const RENDERERS = {
   pie: renderPie,
   text: renderText,
   kpi: renderKpi,
+  table: renderTable,
+  area: renderArea,
+  stacked_bar: renderStackedBar,
+  scatter: renderScatter,
+  donut: renderDonut,
 };
 
 /**

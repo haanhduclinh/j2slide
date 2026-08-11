@@ -16,6 +16,16 @@ export const L = {
   KPI_VALUE_MAX: 12,
   KPI_DELTA_MAX: 10,
 
+  /** Multi-series charts (`area`, `stacked_bar`). */
+  CATEGORIES_MAX: 12,
+  MULTI_SERIES_MAX: 6,
+
+  TABLE_COLS_MAX: 6,
+  TABLE_ROWS_MAX: 12,
+  TABLE_CELL_MAX: 32,
+
+  SCATTER_MAX: 40,
+
   BODY_BYTES_MAX: 32 * 1024,
   SLIDE_CAP: 200,
   RATE_LIMIT_PER_MIN: 60,

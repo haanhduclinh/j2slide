@@ -14,6 +14,19 @@ describe("renderSlide", () => {
       { type: "pie", title: "T", data: [{ label: "a", value: 1 }] },
       { type: "text", title: "T", bullets: ["b"] },
       { type: "kpi", title: "T", items: [{ label: "a", value: "1" }] },
+      { type: "table", title: "T", columns: ["A"], rows: [["1"]] },
+      {
+        type: "area", title: "T",
+        categories: ["Q1", "Q2"],
+        series: [{ name: "A", values: [1, 2] }],
+      },
+      {
+        type: "stacked_bar", title: "T",
+        categories: ["Q1"],
+        series: [{ name: "A", values: [1] }],
+      },
+      { type: "scatter", title: "T", points: [{ x: 1, y: 2 }] },
+      { type: "donut", title: "T", data: [{ label: "a", value: 1 }] },
     ];
     for (const slide of slides) {
       const svg = render(slide);
@@ -135,12 +148,92 @@ describe("renderSlide", () => {
       { type: "text", title: "T", bullets: Array.from({ length: L.BULLETS_MAX }, () => "b".repeat(L.BULLET_MAX)) },
       { type: "kpi", title: "T",
         items: Array.from({ length: L.KPI_MAX }, () => ({ label: "l".repeat(L.LABEL_MAX), value: "v".repeat(L.KPI_VALUE_MAX), delta: "d".repeat(L.KPI_DELTA_MAX), trend: "up" })) },
+      {
+        type: "table", title: "T",
+        columns: Array.from({ length: L.TABLE_COLS_MAX }, (_, i) => `C${i}`),
+        rows: Array.from({ length: L.TABLE_ROWS_MAX }, () =>
+          Array.from({ length: L.TABLE_COLS_MAX }, () => "x".repeat(L.TABLE_CELL_MAX))),
+      },
+      {
+        type: "area", title: "T",
+        categories: Array.from({ length: L.CATEGORIES_MAX }, (_, i) => `Q${i}`),
+        series: Array.from({ length: L.MULTI_SERIES_MAX }, (_, s) => ({
+          name: `S${s}`,
+          values: Array.from({ length: L.CATEGORIES_MAX }, (_, i) => i + s),
+        })),
+      },
+      {
+        type: "stacked_bar", title: "T",
+        categories: Array.from({ length: L.CATEGORIES_MAX }, (_, i) => `Q${i}`),
+        series: Array.from({ length: L.MULTI_SERIES_MAX }, (_, s) => ({
+          name: `S${s}`,
+          values: Array.from({ length: L.CATEGORIES_MAX }, () => 1),
+        })),
+      },
+      {
+        type: "scatter", title: "T",
+        points: Array.from({ length: L.SCATTER_MAX }, (_, i) => ({ x: i, y: i % 7, series: `G${i % 3}` })),
+      },
+      {
+        type: "donut", title: "T",
+        data: Array.from({ length: L.PIE_MAX }, (_, i) => ({ label: `L${i}`, value: i + 1 })),
+      },
     ];
     for (const slide of maxed) {
       const svg = render(slide);
       expect(svg).not.toContain("NaN");
       expect(svg).not.toContain("undefined");
     }
+  });
+
+  it("renders table cells", () => {
+    const svg = render({
+      type: "table", title: "T",
+      columns: ["A", "B"],
+      rows: [["1", "2"]],
+    });
+    expect(svg).toContain('class="table-cell"');
+    expect(svg).toContain("1");
+  });
+
+  it("renders stacked bar segments", () => {
+    const svg = render({
+      type: "stacked_bar", title: "T",
+      categories: ["Q1"],
+      series: [
+        { name: "A", values: [1] },
+        { name: "B", values: [2] },
+      ],
+    });
+    expect(svg.match(/class="stack-seg"/g)).toHaveLength(2);
+  });
+
+  it("renders area series path", () => {
+    const svg = render({
+      type: "area", title: "T",
+      categories: ["Q1", "Q2"],
+      series: [{ name: "A", values: [1, 3] }],
+    });
+    expect(svg).toContain('class="area-series"');
+    expect(svg).not.toContain("NaN");
+  });
+
+  it("renders scatter points", () => {
+    const svg = render({
+      type: "scatter", title: "T",
+      points: [{ x: 1, y: 2 }, { x: 3, y: 4, series: "S" }],
+    });
+    expect(svg.match(/class="scatter-point"/g)).toHaveLength(2);
+  });
+
+  it("renders donut slices and center total", () => {
+    const svg = render({
+      type: "donut", title: "T",
+      data: [{ label: "a", value: 1 }, { label: "b", value: 3 }],
+    });
+    expect(svg.match(/class="slice"/g)?.length).toBeGreaterThanOrEqual(1);
+    expect(svg).toContain('class="donut-center"');
+    expect(svg).toContain("4");
   });
 
   it("renders in both themes", () => {

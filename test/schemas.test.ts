@@ -72,7 +72,65 @@ describe("slide schemas", () => {
   });
 
   it("rejects an unknown slide type", () => {
-    expect(ok({ type: "table", title: "T", rows: [] })).toBe(false);
+    expect(ok({ type: "heatmap", title: "T", data: [] })).toBe(false);
+  });
+
+  it("accepts table / area / stacked_bar / scatter / donut minima", () => {
+    expect(ok({
+      type: "table", title: "T",
+      columns: ["A", "B"],
+      rows: [["1", "2"]],
+    })).toBe(true);
+    expect(ok({
+      type: "area", title: "T",
+      categories: ["Q1", "Q2"],
+      series: [{ name: "A", values: [1, 2] }],
+    })).toBe(true);
+    expect(ok({
+      type: "stacked_bar", title: "T",
+      categories: ["Q1"],
+      series: [{ name: "A", values: [1] }, { name: "B", values: [2] }],
+    })).toBe(true);
+    expect(ok({
+      type: "scatter", title: "T",
+      points: [{ x: 1, y: 2, label: "p" }],
+    })).toBe(true);
+    expect(ok({
+      type: "donut", title: "T",
+      data: [{ label: "a", value: 1 }],
+    })).toBe(true);
+  });
+
+  it("rejects multi-series length mismatch", () => {
+    expect(ok({
+      type: "area", title: "T",
+      categories: ["Q1", "Q2"],
+      series: [{ name: "A", values: [1] }],
+    })).toBe(false);
+  });
+
+  it("rejects negative stacked_bar values", () => {
+    expect(ok({
+      type: "stacked_bar", title: "T",
+      categories: ["Q1"],
+      series: [{ name: "A", values: [-1] }],
+    })).toBe(false);
+  });
+
+  it("rejects ragged table rows", () => {
+    expect(ok({
+      type: "table", title: "T",
+      columns: ["A", "B"],
+      rows: [["1"]],
+    })).toBe(false);
+  });
+
+  it("rejects too many scatter points", () => {
+    expect(ok({
+      type: "scatter",
+      title: "T",
+      points: Array.from({ length: L.SCATTER_MAX + 1 }, (_, i) => ({ x: i, y: i })),
+    })).toBe(false);
   });
 
   it("reports the offending field path on failure", () => {

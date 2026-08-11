@@ -54,9 +54,99 @@ export const KpiSlide = z.object({
   })).min(1).max(L.KPI_MAX),
 }).openapi("KpiSlide");
 
+const cell = z.string().min(1).max(L.TABLE_CELL_MAX);
+
+export const TableSlide = z.object({
+  type: z.literal("table"),
+  title,
+  columns: z.array(cell).min(1).max(L.TABLE_COLS_MAX),
+  rows: z.array(z.array(cell).min(1)).min(1).max(L.TABLE_ROWS_MAX),
+}).openapi("TableSlide");
+
+const multiSeriesFields = {
+  title,
+  unit: z.string().max(L.UNIT_MAX).optional(),
+  categories: z.array(label).min(1).max(L.CATEGORIES_MAX),
+  series: z.array(z.object({
+    name: label,
+    values: z.array(finite).min(1),
+  })).min(1).max(L.MULTI_SERIES_MAX),
+};
+
+export const AreaSlide = z.object({
+  type: z.literal("area"),
+  ...multiSeriesFields,
+}).openapi("AreaSlide");
+
+export const StackedBarSlide = z.object({
+  type: z.literal("stacked_bar"),
+  ...multiSeriesFields,
+}).openapi("StackedBarSlide");
+
+export const ScatterSlide = z.object({
+  type: z.literal("scatter"),
+  title,
+  x_label: z.string().min(1).max(L.LABEL_MAX).optional(),
+  y_label: z.string().min(1).max(L.LABEL_MAX).optional(),
+  points: z.array(z.object({
+    x: finite,
+    y: finite,
+    label: z.string().min(1).max(L.LABEL_MAX).optional(),
+    series: z.string().min(1).max(L.LABEL_MAX).optional(),
+  })).min(1).max(L.SCATTER_MAX),
+}).openapi("ScatterSlide");
+
+export const DonutSlide = z.object({
+  type: z.literal("donut"),
+  title,
+  data: z.array(PieSlice).min(1).max(L.PIE_MAX),
+}).openapi("DonutSlide");
+
+/**
+ * Cross-field rules cannot live on discriminatedUnion members (ZodEffects is
+ * rejected). Apply them on the union instead.
+ */
 export const SlideInput = z.discriminatedUnion("type", [
   BarSlide, LineSlide, PieSlide, TextSlide, KpiSlide,
-]);
+  TableSlide, AreaSlide, StackedBarSlide, ScatterSlide, DonutSlide,
+]).superRefine((val, ctx) => {
+  if (val.type === "table") {
+    const cols = val.columns.length;
+    val.rows.forEach((row, i) => {
+      if (row.length !== cols) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `rows[${i}] length must equal columns.length (${cols})`,
+          path: ["rows", i],
+        });
+      }
+    });
+  }
+
+  if (val.type === "area" || val.type === "stacked_bar") {
+    const nCats = val.categories.length;
+    val.series.forEach((s, i) => {
+      if (s.values.length !== nCats) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `series[${i}].values length must equal categories.length (${nCats})`,
+          path: ["series", i, "values"],
+        });
+      }
+      if (val.type === "stacked_bar") {
+        s.values.forEach((v, j) => {
+          if (v < 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "stacked_bar values must be >= 0",
+              path: ["series", i, "values", j],
+            });
+          }
+        });
+      }
+    });
+  }
+});
 
 export type SlideInput = z.infer<typeof SlideInput>;
 
