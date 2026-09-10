@@ -9,6 +9,8 @@ import {
   text,
   esc,
   formatValue,
+  ellipsize,
+  fitBullets,
 } from "../draw.js";
 
 const GAP = 16;
@@ -91,23 +93,30 @@ function renderImageBlock(block, box) {
 
 function renderTextBlock(block, box, theme) {
   const bullets = block.bullets;
-  const count = bullets.length;
   const padX = box.x + INSET + 12;
+  const left = padX + 28;
+  // The block only owns its own column; anything wider runs over its neighbour.
+  const width = Math.max(1, box.x + box.w - INSET - left);
   const top = box.y + INSET + 20;
-  const bottom = box.y + box.h - INSET;
-  const span = Math.max(1, bottom - top);
-  const gap = span / (count + 1);
-  const size = Math.max(18, Math.min(theme.bulletMinSize ?? 28, Math.floor(box.h / (count + 2))));
+  const height = Math.max(1, box.y + box.h - INSET - top);
+
+  const fit = fitBullets(bullets, width, height, theme.bulletMinSize ?? 28, 14);
+  const used = fit.lines.reduce((sum, l) => sum + l.length, 0) * fit.lineHeight
+    + (bullets.length - 1) * fit.gap;
+  let y = top + Math.max(0, (height - used) / 2) + fit.size;
 
   return bullets.map((bullet, i) => {
-    const y = top + gap * (i + 1);
+    const lineTop = y;
+    y += fit.lines[i].length * fit.lineHeight + fit.gap;
     return [
-      `<circle cx="${n(padX)}" cy="${n(y - 8)}" r="6" fill="${theme.accent}"/>`,
-      text(bullet, padX + 28, y, {
-        size,
+      `<circle cx="${n(padX)}" cy="${n(lineTop - fit.size * 0.32)}" r="6" fill="${theme.accent}"/>`,
+      text(bullet, left, lineTop, {
+        size: n(fit.size),
         fill: theme.fg,
         family: theme.fontFamily,
         className: "bullet",
+        lines: fit.lines[i],
+        lineHeight: n(fit.lineHeight),
       }),
     ].join("\n");
   }).join("\n");
@@ -140,7 +149,7 @@ function renderBarInBox(block, box, theme) {
       `<rect class="bar" x="${n(centre - barWidth / 2)}" y="${n(y)}" width="${n(barWidth)}" height="${n(height)}" rx="4" fill="${colour}"/>`,
     );
     if (data.length <= 8) {
-      parts.push(text(point.label, centre, baseline + 20, {
+      parts.push(text(ellipsize(point.label, slot, 16, "400"), centre, baseline + 20, {
         size: 16, fill: theme.muted, family: theme.fontFamily, anchor: "middle", className: "bar-label",
       }));
     }
@@ -168,10 +177,11 @@ function renderLineInBox(block, box, theme) {
     `<line x1="${n(left)}" y1="${n(baseline)}" x2="${n(right)}" y2="${n(baseline)}" stroke="${theme.grid}" stroke-width="2"/>`,
     `<polyline fill="none" stroke="${theme.series[0]}" stroke-width="4" stroke-linejoin="round" points="${points.map((p) => `${n(p.x)},${n(p.y)}`).join(" ")}"/>`,
   ];
+  const slot = (right - left) / data.length;
   points.forEach((p, i) => {
     parts.push(`<circle class="point" cx="${n(p.x)}" cy="${n(p.y)}" r="5" fill="${theme.series[0]}"/>`);
     if (data.length <= 8) {
-      parts.push(text(data[i].label, p.x, baseline + 20, {
+      parts.push(text(ellipsize(data[i].label, slot, 16, "400"), p.x, baseline + 20, {
         size: 16, fill: theme.muted, family: theme.fontFamily, anchor: "middle", className: "line-label",
       }));
     }
@@ -223,7 +233,8 @@ function renderRingInBox(block, box, theme, donut) {
     if (y > box.y + box.h - INSET) return;
     const percent = total > 0 ? Math.round((slice.value / total) * 100) : 0;
     parts.push(`<rect x="${n(legendX)}" y="${n(y - 10)}" width="12" height="12" rx="2" fill="${theme.series[i % theme.series.length]}"/>`);
-    parts.push(text(`${slice.label} ${percent}%`, legendX + 18, y, {
+    const label = ellipsize(`${slice.label} ${percent}%`, box.x + box.w - INSET - (legendX + 18), 14, "400");
+    parts.push(text(label, legendX + 18, y, {
       size: 14, fill: theme.fg, family: theme.fontFamily, className: "legend-label",
     }));
   });

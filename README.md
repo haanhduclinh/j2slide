@@ -349,7 +349,9 @@ Strengths:
 - Limits centralized; OpenAPI + MCP tests assert published bounds.
 - Auth uses CSPRNG ids, SHA-256 digests, timing-safe compare.
 - Hibernatable WebSockets + pure SVG keep cost and dependencies low.
-- 150 automated tests across storage, rate limit, WS, routes, MCP, render, OpenAPI.
+- 165 automated tests across storage, rate limit, WS, routes, MCP, render, OpenAPI.
+- Text is measured before it is drawn, so titles, bullets, labels and cells stay
+  inside their boxes instead of overlapping the chart beside them.
 
 Follow-ups worth knowing:
 

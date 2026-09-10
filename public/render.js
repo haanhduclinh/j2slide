@@ -16,6 +16,10 @@ import {
   n,
   text,
   formatValue,
+  fitSize,
+  ellipsize,
+  fitBullets,
+  measureText,
 } from "./draw.js";
 import { renderTable } from "./renderers/table.js";
 import { renderArea } from "./renderers/area.js";
@@ -26,12 +30,21 @@ import { renderComposite } from "./renderers/composite.js";
 
 export { CANVAS };
 
+/**
+ * Titles are one line by design — the rule under them and CONTENT_TOP are fixed
+ * — so a long one shrinks to fit rather than wrapping or overhanging the slide.
+ */
+const TITLE_WIDTH = CANVAS.w - CANVAS.pad * 2;
+const TITLE_MIN_SIZE = 30;
+
 function frame(slide, theme, body, footer) {
+  const titleSize = fitSize(slide.title, TITLE_WIDTH, theme.titleSize, TITLE_MIN_SIZE, "700");
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS.w} ${CANVAS.h}" width="100%" height="100%">`,
     `<rect x="0" y="0" width="${CANVAS.w}" height="${CANVAS.h}" fill="${theme.bg}"/>`,
-    text(slide.title, CANVAS.pad, TITLE_Y, {
-      size: theme.titleSize, fill: theme.fg, family: theme.fontFamily,
+    // Only a title still too wide at the floor size gets clipped.
+    text(ellipsize(slide.title, TITLE_WIDTH, titleSize, "700"), CANVAS.pad, TITLE_Y, {
+      size: titleSize, fill: theme.fg, family: theme.fontFamily,
       weight: "700", className: "slide-title",
     }),
     `<rect x="${CANVAS.pad}" y="${RULE_Y}" width="96" height="4" fill="${theme.accent}"/>`,
@@ -91,7 +104,10 @@ function renderBar(slide, theme) {
       }));
     }
     if (labeled.has(i)) {
-      parts.push(text(point.label, centre, baseline + 40, {
+      const label = rotate
+        ? point.label
+        : ellipsize(point.label, slot, theme.labelSize, "400");
+      parts.push(text(label, centre, baseline + 40, {
         size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
         anchor: rotate ? "end" : "middle", className: "bar-label",
         transform: rotate ? `rotate(-45 ${n(centre)} ${n(baseline + 40)})` : undefined,
@@ -135,13 +151,19 @@ function renderLine(slide, theme) {
 
   const labeled = new Set(labelIndices(data.length));
   const pointR = data.length > HIDE_POINT_VALUES_ABOVE ? 4 : 8;
+  const rotate = data.length > ROTATE_LABELS_ABOVE;
+  const slot = (right - left) / data.length;
   points.forEach((p, i) => {
     parts.push(`<circle class="point" cx="${n(p.x)}" cy="${n(p.y)}" r="${pointR}" fill="${theme.series[0]}"/>`);
     if (labeled.has(i)) {
-      parts.push(text(data[i].label, p.x, baseline + 40, {
+      // Rotated labels run into open space; upright ones must stay in their slot.
+      const label = rotate
+        ? data[i].label
+        : ellipsize(data[i].label, slot, theme.labelSize, "400");
+      parts.push(text(label, p.x, baseline + 40, {
         size: theme.labelSize, fill: theme.muted, family: theme.fontFamily,
-        anchor: data.length > ROTATE_LABELS_ABOVE ? "end" : "middle", className: "line-label",
-        transform: data.length > ROTATE_LABELS_ABOVE ? `rotate(-45 ${n(p.x)} ${n(baseline + 40)})` : undefined,
+        anchor: rotate ? "end" : "middle", className: "line-label",
+        transform: rotate ? `rotate(-45 ${n(p.x)} ${n(baseline + 40)})` : undefined,
       }));
     }
   });
@@ -185,10 +207,13 @@ function renderPie(slide, theme) {
     const y = legendTop + i * 56;
     const percent = total > 0 ? Math.round((slice.value / total) * 100) : 0;
     parts.push(`<rect x="${legendX}" y="${n(y - 18)}" width="24" height="24" rx="5" fill="${theme.series[i % theme.series.length]}"/>`);
-    parts.push(text(slice.label, legendX + 40, y, {
+    const value = `${formatValue(slice.value)} · ${percent}%`;
+    // Reserve the value's own width so the two never meet in the middle.
+    const room = CANVAS.w - CANVAS.pad - (legendX + 40) - measureText(value, 28, "400") - 24;
+    parts.push(text(ellipsize(slice.label, room, 28, "400"), legendX + 40, y, {
       size: 28, fill: theme.fg, family: theme.fontFamily, className: "legend-label",
     }));
-    parts.push(text(`${formatValue(slice.value)} · ${percent}%`, CANVAS.w - CANVAS.pad, y, {
+    parts.push(text(value, CANVAS.w - CANVAS.pad, y, {
       size: 28, fill: theme.muted, family: theme.fontFamily, anchor: "end", className: "legend-value",
     }));
   });
@@ -197,19 +222,26 @@ function renderPie(slide, theme) {
 }
 
 function renderText(slide, theme) {
-  const count = slide.bullets.length;
-  // Interpolate down from the max size as the list fills up.
-  const size = count <= 1
-    ? theme.bulletMaxSize
-    : theme.bulletMaxSize - ((theme.bulletMaxSize - theme.bulletMinSize) * (count - 1)) / 7;
-  const gap = (CONTENT_BOTTOM - CONTENT_TOP) / (count + 1);
+  const left = CANVAS.pad + 44;
+  const width = CANVAS.w - CANVAS.pad - left;
+  const height = CONTENT_BOTTOM - CONTENT_TOP;
+  const fit = fitBullets(
+    slide.bullets, width, height, theme.bulletMaxSize, theme.bulletMinSize,
+  );
+
+  // Centre the wrapped block in the content band.
+  const used = fit.lines.reduce((sum, l) => sum + l.length, 0) * fit.lineHeight
+    + (slide.bullets.length - 1) * fit.gap;
+  let y = CONTENT_TOP + Math.max(0, (height - used) / 2) + fit.size;
 
   return slide.bullets.map((bullet, i) => {
-    const y = CONTENT_TOP + gap * (i + 1);
+    const top = y;
+    y += fit.lines[i].length * fit.lineHeight + fit.gap;
     return [
-      `<circle cx="${CANVAS.pad + 12}" cy="${n(y - 10)}" r="7" fill="${theme.accent}"/>`,
-      text(bullet, CANVAS.pad + 44, y, {
-        size: n(size), fill: theme.fg, family: theme.fontFamily, className: "bullet",
+      `<circle cx="${CANVAS.pad + 12}" cy="${n(top - fit.size * 0.35)}" r="7" fill="${theme.accent}"/>`,
+      text(bullet, left, top, {
+        size: n(fit.size), fill: theme.fg, family: theme.fontFamily, className: "bullet",
+        lines: fit.lines[i], lineHeight: n(fit.lineHeight),
       }),
     ].join("\n");
   }).join("\n");
@@ -233,10 +265,11 @@ function renderKpi(slide, theme) {
     const parts = [
       `<rect class="kpi-tile" x="${n(x)}" y="${tileTop}" width="${n(tileWidth)}" height="${tileHeight}" rx="18" fill="${theme.grid}"/>`,
       text(item.value, centre, tileTop + 200, {
-        size: theme.kpiValueSize, fill: theme.fg, family: theme.fontFamily,
+        size: fitSize(item.value, tileWidth - 48, theme.kpiValueSize, 32, "700"),
+        fill: theme.fg, family: theme.fontFamily,
         weight: "700", anchor: "middle", className: "kpi-value",
       }),
-      text(item.label, centre, tileTop + 264, {
+      text(ellipsize(item.label, tileWidth - 32, 28, "400"), centre, tileTop + 264, {
         size: 28, fill: theme.muted, family: theme.fontFamily, anchor: "middle", className: "kpi-label",
       }),
     ];

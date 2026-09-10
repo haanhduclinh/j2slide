@@ -1,4 +1,4 @@
-import { CANVAS, CONTENT_TOP, CONTENT_BOTTOM, n, text } from "../draw.js";
+import { CANVAS, CONTENT_TOP, CONTENT_BOTTOM, n, text, ellipsize } from "../draw.js";
 
 /**
  * @param {{ title: string, columns: string[], rows: string[][] }} slide
@@ -16,6 +16,7 @@ export function renderTable(slide, theme) {
   const rowCount = rows.length + 1; // header + body
   const rowH = Math.min(64, height / rowCount);
   const fontSize = rowH > 48 ? 26 : 20;
+  const cellW = colW - 32;  // 16px padding each side
 
   const parts = [];
 
@@ -27,7 +28,7 @@ export function renderTable(slide, theme) {
   slide.columns.forEach((col, c) => {
     const x = left + colW * c + 16;
     const y = top + rowH * 0.65;
-    parts.push(text(col, x, y, {
+    parts.push(text(ellipsize(col, cellW, fontSize, "700"), x, y, {
       size: fontSize, fill: theme.fg, family: theme.fontFamily,
       weight: "700", className: "table-header",
     }));
@@ -43,7 +44,7 @@ export function renderTable(slide, theme) {
     row.forEach((cell, c) => {
       const x = left + colW * c + 16;
       const y = y0 + rowH * 0.65;
-      parts.push(text(cell, x, y, {
+      parts.push(text(ellipsize(cell, cellW, fontSize, "400"), x, y, {
         size: fontSize, fill: theme.fg, family: theme.fontFamily, className: "table-cell",
       }));
     });
