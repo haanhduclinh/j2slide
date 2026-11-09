@@ -230,6 +230,7 @@ https://j2slide.haanhduclinh.workers.dev/openapi.json
 | `←` `→` / `Space` | Previous / next slide |
 | `End` | Jump to the live (newest) slide |
 | `F` | Toggle fullscreen |
+| `P` | Export all slides to PDF (opens the print dialog; choose "Save as PDF") |
 | `T` | Toggle dark / light theme |
 
 A new slide auto-advances only if the viewer is already on the latest slide.

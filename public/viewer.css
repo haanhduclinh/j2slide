@@ -54,3 +54,41 @@ html, body {
 }
 
 #jump[hidden] { display: none; }
+
+#export-pdf {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--chrome);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 150ms;
+}
+
+#export-pdf:hover, #export-pdf:focus-visible { opacity: 1; }
+
+#print-root { display: none; }
+
+@page { size: 1280px 720px; margin: 0; }
+
+@media print {
+  html, body { height: auto; overflow: visible; background: none; }
+  #stage, #jump, #export-pdf { display: none !important; }
+  #print-root { display: block; }
+  .print-slide {
+    width: 1280px;
+    height: 720px;
+    break-after: page;
+    page-break-after: always;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-slide:last-child { break-after: auto; page-break-after: auto; }
+  .print-slide svg { display: block; width: 100%; height: 100%; }
+}

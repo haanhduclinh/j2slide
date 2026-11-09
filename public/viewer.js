@@ -88,6 +88,32 @@ function connect(attempt = 0) {
   socket.addEventListener("error", () => socket.close());
 }
 
+const exportBtn = document.getElementById("export-pdf");
+const printRoot = document.getElementById("print-root");
+
+/** Renders every slide as its own printed page, then opens the print dialog ("Save as PDF"). */
+function exportPdf() {
+  if (state.slides.length === 0) return;
+  printRoot.innerHTML = state.slides
+    .map(
+      (slide, i) =>
+        `<div class="print-slide">${renderSlide(slide, state.theme, {
+          index: i,
+          total: state.slides.length,
+          live: false,
+        })}</div>`,
+    )
+    .join("");
+  const cleanup = () => {
+    printRoot.innerHTML = "";
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+}
+
+exportBtn.addEventListener("click", exportPdf);
+
 jump.addEventListener("click", () => goTo(state.slides.length - 1));
 
 document.addEventListener("keydown", (event) => {
@@ -107,6 +133,10 @@ document.addEventListener("keydown", (event) => {
     case "F":
       if (document.fullscreenElement) document.exitFullscreen();
       else document.documentElement.requestFullscreen();
+      break;
+    case "p":
+    case "P":
+      if (!event.metaKey && !event.ctrlKey) exportPdf();
       break;
     case "t":
     case "T": {

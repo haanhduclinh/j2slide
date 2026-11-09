@@ -34,6 +34,8 @@ function page(deckId: string): string {
 <body data-deck-id="${deckId}">
 <main id="stage" aria-live="polite"></main>
 <button id="jump" hidden></button>
+<button id="export-pdf" type="button" title="Export all slides to PDF (P)">Export PDF</button>
+<div id="print-root" aria-hidden="true"></div>
 <script type="module" src="/viewer.js"></script>
 </body>
 </html>`;
